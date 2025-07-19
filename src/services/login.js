@@ -17,8 +17,14 @@ async function login({ identifier, password }) {
     if (!match) throw new Error('Invalid username/email or password');
 
     if (!user.isVerified) throw new Error('Email not verified');
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    return { message: 'Login successful', token };
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    return {
+        message: 'Login successful',
+        token,
+        email: user.email,
+        username: user.username,
+        role: user.role
+    };
 }
 
 module.exports = login;
