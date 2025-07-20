@@ -125,11 +125,20 @@ async function changeUserPassword(req, res) {
     }
 }
 
+async function getUsers(req, res) {
+    try {
+        const users = await prisma.Users.findMany();
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}
 
 module.exports = {
     deleteUser,
     banUser,
     unbanUser,
+    getUsers,
     createUserByAdmin,
     changeUserPassword,
 };
