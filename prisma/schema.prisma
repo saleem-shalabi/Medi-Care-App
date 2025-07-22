@@ -26,6 +26,8 @@ model Users {
   role             Role      @default(USER)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  favorites        Product[] @relation("UserFavorites")
+  cart             Product[] @relation("UserCart")
 }
 
 enum Role {
@@ -34,3 +36,29 @@ enum Role {
   ACCOUNTANT
   MAINTENANCE
 }
+
+////////////////////////////////////////////////////////////////
+model Product {
+  id               Int      @id @default(autoincrement())
+  nameEn           String
+  nameAr           String
+  company          String
+  category         String
+  description      String
+  rate             Float    @default(0)
+  rentPrice        Float?
+  sellPrice        Float?
+  availableForRent Boolean  @default(false)
+  availableForSale Boolean  @default(false)
+  rentStock        Int      @default(0)
+  saleStock        Int      @default(0)
+  images           String[] // array of image URLs
+  videos           String[] // array of video URLs
+  qrCode           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  favoritedBy      Users[]  @relation("UserFavorites")
+  inCarts          Users[]  @relation("UserCart")
+}
+
+////////////////////////////////////////////////////////////////
