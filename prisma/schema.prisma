@@ -42,9 +42,12 @@ model Product {
   id               Int      @id @default(autoincrement())
   nameEn           String
   nameAr           String
-  company          String
-  category         String
-  description      String
+  companyEn        String
+  companyar        String
+  categoryEn       String
+  categoryAr       String
+  descriptionEn    String
+  descriptionAr    String
   rate             Float    @default(0)
   rentPrice        Float?
   sellPrice        Float?
