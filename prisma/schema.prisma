@@ -43,7 +43,7 @@ model Product {
   nameEn           String
   nameAr           String
   companyEn        String
-  companyar        String
+  companyAr        String
   categoryEn       String
   categoryAr       String
   descriptionEn    String
