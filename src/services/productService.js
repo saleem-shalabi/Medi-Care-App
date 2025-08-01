@@ -14,41 +14,58 @@ async function deleteProduct(id) {
 }
 
 async function editProduct(id, data) {
-    const product = await prisma.Product.findUnique({ where: { id } });
-    if (!product) throw new Error('Product not found');
+    const existingProduct = await prisma.Product.findUnique({ where: { id } });
+    if (!existingProduct) throw new Error('Product not found');
 
-    const updated = await prisma.product.update({
+    const {
+        ProductVideo, // Extract videos if provided
+        ...productData // All other fields
+    } = data;
+
+    const updated = await prisma.Product.update({
         where: { id },
-        data,
+        data: {
+            ...productData,
+            ...(ProductVideo && {
+                ProductVideo: {
+                    deleteMany: {}, // remove old ones
+                    create: ProductVideo,
+                },
+            }),
+        },
+        include: {
+            ProductVideo: true,
+        },
     });
 
     return updated;
 }
 
-async function getProducts(includeMedia = true) {
-    return await prisma.Product.findMany({
-        select: {
-            id: true,
-            nameEn: true,
-            nameAr: true,
-            company: true,
-            category: true,
-            description: true,
-            rate: true,
-            rentPrice: true,
-            sellPrice: true,
-            availableForRent: true,
-            availableForSale: true,
-            rentStock: true,
-            saleStock: true,
-            qrCode: true,
-            createdAt: true,
-            updatedAt: true,
-            images: includeMedia,
-            videos: includeMedia,
-        }, orderBy: { createdAt: 'desc' },
+async function fetchProducts(category, withVideos = false) {
+    const where = category ? { category } : {};
+
+    const products = await prisma.Product.findMany({
+        where,
+        include: {
+            videos: withVideos
+                ? {
+                    select: {
+                        id: true,
+                        name: true,
+                        bio: true,
+                        url: true,
+                    },
+                }
+                : false, // Don't include videos if not requested
+        },
+        orderBy: {
+            createdAt: 'desc',
+        },
     });
+
+    return products;
 }
+
 
 async function addToFavorites(userId, productId) {
     return await prisma.Users.update({
@@ -62,23 +79,43 @@ async function addToFavorites(userId, productId) {
     });
 }
 
-async function addToCart(userId, productId) {
-    return await prisma.Users.update({
-        where: { id: userId },
-        data: {
-            cart: {
-                connect: { id: productId }
-            }
+async function addToCart(userId, productId, quantity = 1) {
+  try {
+    const existing = await prisma.CrtItem.findUnique({
+      where: {
+        userId_productId: {
+          userId,
+          productId,
         },
-        include: { cart: true }
+      },
     });
+
+    if (existing) {
+      // Optional: Update quantity if already exists
+      return await prisma.CartItem.update({
+        where: { userId_productId: { userId, productId } },
+        data: { quantity: existing.quantity + quantity },
+      });
+    }
+
+    return await prisma.cartItem.create({
+      data: {
+        userId,
+        productId,
+        quantity, // ✅ defaults to 1 if not provided
+      },
+    });
+  } catch (err) {
+    throw new Error('Could not add to cart');
+  }
 }
+
 
 module.exports = {
     createProduct,
     deleteProduct,
     editProduct,
-    getProducts,
+    fetchProducts,
     addToFavorites,
     addToCart,
 };

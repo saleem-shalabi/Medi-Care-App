@@ -26,10 +26,10 @@ async function registerWithEmailHandler(req, res) {
 }
 
 async function verifyCodeHandler(req, res) {
-  try {
-    const data = req.body; // expects: { email, code }
-    const result = await verifyCode(data);
-    res.json(result);
+ try {
+    const { email, code } = req.body;
+    const result = await verifyCode(email, code);
+    res.status(200).json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

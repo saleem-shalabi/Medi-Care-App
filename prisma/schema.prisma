@@ -14,11 +14,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+////////////////////////////////////////////////////////////////
+
 model Users {
   id               Int       @id @default(autoincrement())
   username         String    @unique
   email            String    @unique
   password         String
+  number           String? // ✅ Phone number (optional)
+  image            String? // ✅ Profile image URL (optional)
+  jobTitle         String? // ✅ Job title (optional)
+  bio              String? // ✅ Short bio (optional)
   isBanned         Boolean   @default(false)
   isVerified       Boolean   @default(false)
   verificationCode String?
@@ -26,6 +32,9 @@ model Users {
   role             Role      @default(USER)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  favorites Product[]  @relation("UserFavorites")
+  cartItems CartItem[] // ✅ Relation to CartItem
 }
 
 enum Role {
@@ -33,4 +42,58 @@ enum Role {
   ADMIN
   ACCOUNTANT
   MAINTENANCE
+}
+
+////////////////////////////////////////////////////////////////
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  nameEn           String
+  nameAr           String
+  company          String
+  category         String
+  description      String
+  rate             Float    @default(0)
+  rentPrice        Float?
+  sellPrice        Float?
+  availableForRent Boolean  @default(false)
+  availableForSale Boolean  @default(false)
+  rentStock        Int      @default(0)
+  saleStock        Int      @default(0)
+  images           String[] // Array of image URLs
+  qrCode           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  favoritedBy Users[]        @relation("UserFavorites")
+  cartItems   CartItem[]
+  videos      ProductVideo[] // Better naming
+}
+
+////////////////////////////////////////////////////////////////
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  user      Users    @relation(fields: [userId], references: [id])
+  userId    Int
+  product   Product  @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+
+  @@unique([userId, productId]) // Prevent duplicate entries
+}
+
+////////////////////////////////////////////////////////////////
+
+model ProductVideo {
+  id        Int     @id @default(autoincrement())
+  name      String
+  bio       String
+  url       String
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  @@map("product_videos") // ✅ maps model to DB table
 }
