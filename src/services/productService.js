@@ -1,9 +1,21 @@
 const prisma = require('../config/prisma');
 
 async function createProduct(data) {
-    const product = await prisma.Product.create({ data });
+    const { videos, ...productData } = data;
+
+    const product = await prisma.Product.create({
+        data: {
+            ...productData,
+            videos: {
+                create: videos || [], // create related ProductVideo entries
+            },
+        },
+        include: { videos: true }, // optional: return videos with product
+    });
+
     return product;
 }
+
 
 async function deleteProduct(id) {
     const existing = await prisma.Product.findUnique({ where: { id } });
