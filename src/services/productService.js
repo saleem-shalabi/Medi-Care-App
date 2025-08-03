@@ -1,16 +1,36 @@
 const prisma = require('../config/prisma');
 
-async function createProduct(data) {
-    const { videos, ...productData } = data;
+async function createProduct(data, imageFiles, videoFiles) {
+    const images = imageFiles.map((file) => file.path);
+    const videos = videoFiles.map((file) => ({
+        name: file.originalname,
+        bio: '', // You can update this to accept from form-data later
+        url: file.path,
+    }));
 
     const product = await prisma.Product.create({
         data: {
-            ...productData,
+            nameEn: data.nameEn,
+            nameAr: data.nameAr,
+            company: data.company,
+            category: data.category,
+            description: data.description,
+            rate: Number(data.rate),
+            rentPrice: Number(data.rentPrice),
+            sellPrice: Number(data.sellPrice),
+            availableForRent: data.availableForRent === 'true',
+            availableForSale: data.availableForSale === 'true',
+            rentStock: Number(data.rentStock),
+            saleStock: Number(data.saleStock),
+            qrCode: data.qrCode,
+            images,
             videos: {
-                create: videos || [], // create related ProductVideo entries
+                create: videos,
             },
         },
-        include: { videos: true }, // optional: return videos with product
+        include: {
+            videos: true,
+        },
     });
 
     return product;
@@ -92,34 +112,34 @@ async function addToFavorites(userId, productId) {
 }
 
 async function addToCart(userId, productId, quantity = 1) {
-  try {
-    const existing = await prisma.CrtItem.findUnique({
-      where: {
-        userId_productId: {
-          userId,
-          productId,
-        },
-      },
-    });
+    try {
+        const existing = await prisma.CrtItem.findUnique({
+            where: {
+                userId_productId: {
+                    userId,
+                    productId,
+                },
+            },
+        });
 
-    if (existing) {
-      // Optional: Update quantity if already exists
-      return await prisma.CartItem.update({
-        where: { userId_productId: { userId, productId } },
-        data: { quantity: existing.quantity + quantity },
-      });
+        if (existing) {
+            // Optional: Update quantity if already exists
+            return await prisma.CartItem.update({
+                where: { userId_productId: { userId, productId } },
+                data: { quantity: existing.quantity + quantity },
+            });
+        }
+
+        return await prisma.cartItem.create({
+            data: {
+                userId,
+                productId,
+                quantity, // ✅ defaults to 1 if not provided
+            },
+        });
+    } catch (err) {
+        throw new Error('Could not add to cart');
     }
-
-    return await prisma.cartItem.create({
-      data: {
-        userId,
-        productId,
-        quantity, // ✅ defaults to 1 if not provided
-      },
-    });
-  } catch (err) {
-    throw new Error('Could not add to cart');
-  }
 }
 
 
