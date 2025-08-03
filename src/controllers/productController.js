@@ -1,32 +1,26 @@
 const { createProduct, deleteProduct, editProduct, fetchProducts, addToFavorites, addToCart } = require('../services/productService');
 
+
 async function addProduct(req, res) {
     try {
-        const { body, files } = req;
+        const imageFiles = req.files?.images || [];
+        const videoFiles = req.files?.videos || [];
 
-        const imageFiles = files?.images || [];
-        const videoFiles = files?.videos || [];
+        const product = await createProduct(
+            req.body,
+            imageFiles,
+            videoFiles
+        );
 
-        const imagePaths = imageFiles.map(file => `/uploads/${file.filename}`);
-        const videoData = videoFiles.map(file => ({
-            name: file.originalname,
-            bio: '', // or get from req.body if you allow input
-            url: `/uploads/${file.filename}`,
-        }));
-
-        const productData = {
-            ...body,
-            images: imagePaths,
-            videos: videoData,
-        };
-
-        const product = await createProduct(productData);
-        res.status(201).json({ message: 'Product created successfully', product });
-
+        res.status(201).json({
+            message: 'Product created successfully',
+            product,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 }
+
 
 
 async function removeProduct(req, res) {
