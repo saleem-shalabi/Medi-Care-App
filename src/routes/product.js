@@ -5,7 +5,7 @@ const requireLogin = require('../middlewares/requireLogin');
 const validate = require('../middlewares/validateProductInput');
 const { createProductSchema, editProductSchema } = require('../utils/validationSchemas');
 const { addProduct, removeProduct, changeProduct, getProducts, AddToFavorites, AddToCart } = require('../controllers/productController');
-const upload = require('../middlewares/uploadMiddleware');
+const upload = require('../middlewares/upload');
 
 router.post('/add-product', requireRole('ADMIN'), upload.fields([
     { name: 'images', maxCount: 100 },
