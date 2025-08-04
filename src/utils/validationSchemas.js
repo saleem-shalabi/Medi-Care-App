@@ -7,23 +7,16 @@ const createProductSchema = Joi.object({
   company: Joi.string().required(),
   category: Joi.string().required(),
   description: Joi.string().required(),
-  rentPrice: Joi.number().min(0).optional(),
-  sellPrice: Joi.number().min(0).optional(),
-  availableForRent: Joi.boolean().required(),
-  availableForSale: Joi.boolean().required(),
-  rentStock: Joi.number().integer().min(0).required(),
-  saleStock: Joi.number().integer().min(0).required(),
-  images: Joi.array().items(Joi.string().uri()).required(),
+  rate: Joi.number().min(0).max(5).optional(),
+  rentPrice: Joi.number().allow(null),
+  sellPrice: Joi.number().allow(null),
+  availableForRent: Joi.boolean(),
+  availableForSale: Joi.boolean(),
+  rentStock: Joi.number().integer(),
+  saleStock: Joi.number().integer(),
   qrCode: Joi.string().optional(),
-
-  ProductVideo: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required(),
-      bio: Joi.string().required(),
-      url: Joi.string().uri().required(),
-    })
-  ).optional(),
-});
+  // We parse images and videos separately
+}).unknown(true);
 
 // Schema for editing a product
 const editProductSchema = Joi.object({
