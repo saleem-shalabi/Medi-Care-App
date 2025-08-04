@@ -40,7 +40,9 @@ async function createProduct(data, imageFiles, videoFiles) {
 async function deleteProduct(id) {
   const existing = await prisma.Product.findUnique({ where: { id } });
   if (!existing) throw new Error("Product not found");
-
+  await prisma.ProductVideo.deleteMany({
+          where: { productId: id },
+      });
   const deleted = await prisma.Product.delete({ where: { id } });
   return deleted;
 }
