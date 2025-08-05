@@ -41,8 +41,8 @@ async function deleteProduct(id) {
   const existing = await prisma.Product.findUnique({ where: { id } });
   if (!existing) throw new Error("Product not found");
   await prisma.ProductVideo.deleteMany({
-          where: { productId: id },
-      });
+    where: { productId: id },
+  });
   const deleted = await prisma.Product.delete({ where: { id } });
   return deleted;
 }
@@ -114,7 +114,7 @@ async function addToFavorites(userId, productId) {
 
 async function addToCart(userId, productId, quantity = 1) {
   try {
-    const existing = await prisma.CrtItem.findUnique({
+    const existing = await prisma.CartItem.findUnique({
       where: {
         userId_productId: {
           userId,
