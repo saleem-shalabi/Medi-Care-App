@@ -1,84 +1,153 @@
-const prisma = require('../config/prisma');
+const prisma = require("../config/prisma");
 
-async function createProduct(data) {
-    const product = await prisma.Product.create({ data });
-    return product;
+async function createProduct(data, imageFiles, videoFiles) {
+  const images = imageFiles.map((file) => file.path.replace(/\\/g, "/"));
+
+  const videos = videoFiles.map((file) => ({
+    name: file.originalname,
+    bio: "", // لاحقًا ممكن تقراها من req.body
+    url: file.path.replace(/\\/g, "/"), // نفس الشي لازم تعالج path
+  }));
+
+  const product = await prisma.Product.create({
+    data: {
+      nameEn: data.nameEn,
+      nameAr: data.nameAr,
+      company: data.company,
+      category: data.category,
+      description: data.description,
+      rate: Number(data.rate ?? 0),
+      rentPrice: Number(data.rentPrice),
+      sellPrice: Number(data.sellPrice),
+      availableForRent: data.availableForRent === "true",
+      availableForSale: data.availableForSale === "true",
+      rentStock: Number(data.rentStock),
+      saleStock: Number(data.saleStock),
+      qrCode: data.qrCode,
+      images,
+      videos: {
+        create: videos,
+      },
+    },
+    include: {
+      videos: true,
+    },
+  });
+
+  return product;
 }
 
 async function deleteProduct(id) {
-    const existing = await prisma.Product.findUnique({ where: { id } });
-    if (!existing) throw new Error('Product not found');
-
-    const deleted = await prisma.Product.delete({ where: { id } });
-    return deleted;
+  const existing = await prisma.Product.findUnique({ where: { id } });
+  if (!existing) throw new Error("Product not found");
+  await prisma.ProductVideo.deleteMany({
+    where: { productId: id },
+  });
+  const deleted = await prisma.Product.delete({ where: { id } });
+  return deleted;
 }
 
 async function editProduct(id, data) {
-    const product = await prisma.Product.findUnique({ where: { id } });
-    if (!product) throw new Error('Product not found');
+  const existingProduct = await prisma.Product.findUnique({ where: { id } });
+  if (!existingProduct) throw new Error("Product not found");
 
-    const updated = await prisma.product.update({
-        where: { id },
-        data,
-    });
+  const {
+    ProductVideo, // Extract videos if provided
+    ...productData // All other fields
+  } = data;
 
-    return updated;
+  const updated = await prisma.Product.update({
+    where: { id },
+    data: {
+      ...productData,
+      ...(ProductVideo && {
+        ProductVideo: {
+          deleteMany: {}, // remove old ones
+          create: ProductVideo,
+        },
+      }),
+    },
+    include: {
+      ProductVideo: true,
+    },
+  });
+
+  return updated;
 }
 
-async function getProducts(includeMedia = true) {
-    return await prisma.Product.findMany({
-        select: {
-            id: true,
-            nameEn: true,
-            nameAr: true,
-            company: true,
-            category: true,
-            description: true,
-            rate: true,
-            rentPrice: true,
-            sellPrice: true,
-            availableForRent: true,
-            availableForSale: true,
-            rentStock: true,
-            saleStock: true,
-            qrCode: true,
-            createdAt: true,
-            updatedAt: true,
-            images: includeMedia,
-            videos: includeMedia,
-        }, orderBy: { createdAt: 'desc' },
-    });
+async function fetchProducts(category, withVideos = false) {
+  const where = category ? { category } : {};
+
+  const products = await prisma.Product.findMany({
+    where,
+    include: {
+      videos: withVideos
+        ? {
+            select: {
+              id: true,
+              name: true,
+              bio: true,
+              url: true,
+            },
+          }
+        : false, // Don't include videos if not requested
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return products;
 }
 
 async function addToFavorites(userId, productId) {
-    return await prisma.Users.update({
-        where: { id: userId },
-        data: {
-            favorites: {
-                connect: { id: productId }
-            }
-        },
-        include: { favorites: true }
-    });
+  return await prisma.Users.update({
+    where: { id: userId },
+    data: {
+      favorites: {
+        connect: { id: productId },
+      },
+    },
+    include: { favorites: true },
+  });
 }
 
-async function addToCart(userId, productId) {
-    return await prisma.Users.update({
-        where: { id: userId },
-        data: {
-            cart: {
-                connect: { id: productId }
-            }
+async function addToCart(userId, productId, quantity = 1) {
+  try {
+    const existing = await prisma.CartItem.findUnique({
+      where: {
+        userId_productId: {
+          userId,
+          productId,
         },
-        include: { cart: true }
+      },
     });
+
+    if (existing) {
+      // Optional: Update quantity if already exists
+      return await prisma.CartItem.update({
+        where: { userId_productId: { userId, productId } },
+        data: { quantity: existing.quantity + quantity },
+      });
+    }
+
+    return await prisma.cartItem.create({
+      data: {
+        userId,
+        productId,
+        quantity, // ✅ defaults to 1 if not provided
+      },
+    });
+  } catch (err) {
+    throw new Error("Could not add to cart");
+  }
 }
 
 module.exports = {
-    createProduct,
-    deleteProduct,
-    editProduct,
-    getProducts,
-    addToFavorites,
-    addToCart,
+  createProduct,
+  deleteProduct,
+  editProduct,
+  fetchProducts,
+  addToFavorites,
+  addToCart,
 };

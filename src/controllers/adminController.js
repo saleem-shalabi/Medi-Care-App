@@ -137,8 +137,10 @@ async function getUsers(req, res) {
         role: true,
         isBanned: true,
         createdAt: true,
-        //phoneNumber:true,
-        //image:true,
+        number: true,
+        image: true,
+        jobTitle: true,
+        bio: true,
       },
     });
     res.json(users);
@@ -146,7 +148,6 @@ async function getUsers(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
-
 module.exports = {
   deleteUser,
   banUser,

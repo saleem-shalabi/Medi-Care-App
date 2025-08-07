@@ -26,10 +26,10 @@ router.put("/set-role/:id", requireRole("ADMIN"), async (req, res) => {
 });
 
 router.delete("/delete-user/:id", requireRole("ADMIN"), deleteUser);
-router.get("/get-users", requireRole("ADMIN"), getUsers);
 router.put("/ban-user/:id", requireRole("ADMIN"), banUser);
 router.put("/unban-user/:id", requireRole("ADMIN"), unbanUser);
 router.post("/create-user", requireRole("ADMIN"), createUserByAdmin);
 router.put("/change-password/:id", requireRole("ADMIN"), changeUserPassword);
+router.get("/get-users", requireRole("ADMIN"), getUsers);
 
 module.exports = router;

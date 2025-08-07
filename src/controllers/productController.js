@@ -1,13 +1,27 @@
-const { createProduct, deleteProduct, editProduct, getProducts, addToFavorites, addToCart } = require('../services/productService');
+const { createProduct, deleteProduct, editProduct, fetchProducts, addToFavorites, addToCart } = require('../services/productService');
+
 
 async function addProduct(req, res) {
     try {
-        const product = await createProduct(req.body);
-        res.status(201).json({ message: 'Product created successfully', product });
+        const imageFiles = req.files?.images || [];
+        const videoFiles = req.files?.videos || [];
+
+        const product = await createProduct(
+            req.body,
+            imageFiles,
+            videoFiles
+        );
+
+        res.status(201).json({
+            message: 'Product created successfully',
+            product,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 }
+
+
 
 async function removeProduct(req, res) {
     try {
@@ -23,23 +37,26 @@ async function changeProduct(req, res) {
     try {
         const { id } = req.params;
         const data = req.body;
-        const updateProduct = await editProduct(Number(id), data);
+
+        const updated = await editProduct(Number(id), data);
         return res.status(200).json({
             message: 'Product updated successfully',
-            product: updateProduct,
+            product: updated,
         });
     } catch (error) {
         return res.status(400).json({ error: error.message });
     }
 }
 
-async function showProducts(req, res) {
+async function getProducts(req, res) {
     try {
-        const { includeMedia = 'true' } = req.query;
-        const products = await getProducts(includeMedia === 'true');
-        res.json(products);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        const { category, withVideos } = req.query;
+
+        const products = await fetchProducts(category, withVideos === 'true');
+
+        return res.status(200).json({ products });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
     }
 }
 
@@ -52,18 +69,30 @@ async function AddToFavorites(req, res) {
 }
 
 async function AddToCart(req, res) {
-    const userId = req.user.id;
-    const productId = parseInt(req.params.productId);
+    try {
+        const userId = req.user.id;
+        const { productId, quantity } = req.body;
 
-    const result = await addToCart(userId, productId);
-    res.json({ message: 'Product added to cart', result });
+        if (!productId) {
+            return res.status(400).json({ error: 'Product ID is required' });
+        }
+
+        const added = await addToCart(userId, Number(productId), quantity ?? 1);
+        return res.status(200).json({
+            message: 'Product added to cart',
+            item: added,
+        });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
 }
+
 
 module.exports = {
     addProduct,
     removeProduct,
     changeProduct,
-    showProducts,
+    getProducts,
     AddToFavorites,
     AddToCart,
 };

@@ -1,9 +1,12 @@
-const { productSchema } = require('../utils/validationSchemas');
+module.exports = function validate(schema) {
+    return (req, res, next) => {
+        const { error } = schema.validate(req.body, { abortEarly: false });
 
-async function validateProductInput(req, res, next) {
-    const { error } = productSchema.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
-    next();
-}
+        if (error) {
+            const errorMessages = error.details.map((detail) => detail.message);
+            return res.status(400).json({ errors: errorMessages });
+        }
 
-module.exports = validateProductInput;
+        next();
+    };
+};
