@@ -1,158 +1,107 @@
-const prisma = require("../config/prisma");
-const bcrypt = require("bcrypt");
+const prisma = require('../config/prisma');
+const bcrypt = require('bcrypt');
+const { deleteUserById, banUserById, unbanUserById, createUser, changeUserPasswordById, setUserRoleById, getAllUsers } = require('../services/adminService');
 
 async function deleteUser(req, res) {
-  const { id } = req.params;
-  try {
-    const user = await prisma.Users.findUnique({
-      where: { id: Number(id) },
-    });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const { id } = req.params;
+    try {
+        await deleteUserById(id);
+        res.status(200).json({ message: 'User account deleted successfully' });
+    } catch (err) {
+        if (err.message === 'User not found')
+            return res.status(404).json({ error: err.message });
+        if (err.message === 'Cannot delete another admin user')
+            return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: 'An unexpected error occurred.' });
     }
-    if (user.role === "ADMIN") {
-      return res
-        .status(403)
-        .json({ error: "Cannot delete another admin user" });
-    }
-    await prisma.Users.delete({
-      where: { id: Number(id) },
-    });
-    res.json({ message: "User account deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 }
 
 async function banUser(req, res) {
-  const { id } = req.params;
-
-  try {
-    const user = await prisma.Users.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const { id } = req.params;
+    try {
+        await banUserById(id);
+        res.status(200).json({ message: 'User account has been banned' });
+    } catch (err) {
+        if (err.message === 'User not found')
+            return res.status(404).json({ error: err.message });
+        if (err.message === 'Cannot ban an admin user')
+            return res.status(403).json({ error: err.message });
+        res.status(500).json({ error: 'An unexpected error occurred.' });
     }
-
-    if (user.role === "ADMIN") {
-      return res.status(403).json({ error: "Cannot ban an admin user" });
-    }
-
-    await prisma.Users.update({
-      where: { id: Number(id) },
-      data: { isBanned: true },
-    });
-
-    res.json({ message: "User account has been banned" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 }
 
 async function unbanUser(req, res) {
-  const { id } = req.params;
-
-  try {
-    const user = await prisma.Users.findUnique({
-      where: { id: Number(id) },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const { id } = req.params;
+    try {
+        await unbanUserById(id);
+        res.status(200).json({ message: 'User has been unbanned successfully' });
+    } catch (err) {
+        if (err.message === 'User not found')
+            return res.status(404).json({ error: err.message });
+        if (err.message === 'User is not banned')
+            return res.status(400).json({ error: err.message });
+        res.status(500).json({ error: 'An unexpected error occurred.' });
     }
-
-    if (user.isBanned === false) {
-      return res.status(400).json({ error: "User is not banned" });
-    }
-
-    await prisma.Users.update({
-      where: { id: Number(id) },
-      data: { isBanned: false },
-    });
-
-    res.json({ message: "User has been unbanned successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 }
 
 async function createUserByAdmin(req, res) {
-  const { username, email, password, role } = req.body;
-
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await prisma.Users.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        role: role || "USER", // default to USER if not provided
-      },
-    });
-
-    res.status(201).json({ message: "User created successfully", user });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+    try {
+        const userData = req.body;
+        const newUser = await createUser(userData);
+        res.status(201).json({ message: 'User created successfully', user: newUser });
+    } catch (err) {
+        if (err.code === 'P2002' && err.meta?.target?.includes('email')) {
+            return res.status(409).json({ error: 'A user with this email already exists.' });
+        }
+        res.status(400).json({ error: err.message });
+    }
 }
 
 async function changeUserPassword(req, res) {
-  const { id } = req.params;
-  const { newPassword } = req.body;
-
-  if (!newPassword) {
-    return res.status(400).json({ error: "New password is required" });
-  }
-
-  try {
-    const user = await prisma.Users.findUnique({ where: { id: Number(id) } });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.trim() === '')
+        return res.status(400).json({ error: 'New password is required and cannot be empty' });
+    try {
+        await changeUserPasswordById(id, newPassword);
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (err) {
+        if (err.message === 'User not found')
+            return res.status(404).json({ error: err.message });
+        res.status(500).json({ error: 'An unexpected error occurred while updating the password.' });
     }
+}
 
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await prisma.Users.update({
-      where: { id: Number(id) },
-      data: { password: hashed },
-    });
-
-    res.json({ message: "Password updated successfully for user" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+async function setUserRole(req, res) {
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!role)
+        return res.status(400).json({ error: 'Role is a required field' });
+    try {
+        await setUserRoleById(id, role);
+        res.status(200).json({ message: `User role changed to ${role}` });
+    } catch (err) {
+        if (err.message === 'User not found')
+            return res.status(404).json({ error: err.message });
+        res.status(400).json({ error: 'Failed to update user role. The provided role may be invalid.' });
+    }
 }
 
 async function getUsers(req, res) {
-  try {
-    const users = await prisma.Users.findMany({
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        role: true,
-        isBanned: true,
-        createdAt: true,
-        number: true,
-        image: true,
-        jobTitle: true,
-        bio: true,
-      },
-    });
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+    try {
+        const users = await getAllUsers();
+        res.status(200).json(users);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to retrieve users.' });
+    }
 }
+
 module.exports = {
-  deleteUser,
-  banUser,
-  unbanUser,
-  createUserByAdmin,
-  changeUserPassword,
-  getUsers,
+    deleteUser,
+    banUser,
+    unbanUser,
+    createUserByAdmin,
+    changeUserPassword,
+    setUserRole,
+    getUsers,
 };

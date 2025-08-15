@@ -1,19 +1,4 @@
-const registerDirect = require('../services/registerDirect');
-const registerWithEmail = require('../services/registerWithEmail');
-const verifyCode = require('../services/verifyCode');
-const login = require('../services/login');
-const changePassword = require('../services/changePassword');
-const forgetPassword = require('../services/forgetPassword');
-
-async function registerHandler(req, res) {
-  try {
-    const data = req.body;
-    const result = await registerDirect(data);
-    res.json(result);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-}
+const { registerWithEmail, verifyCode, login, changePassword, sendResetCode, resetPassword } = require('../services/authService');
 
 async function registerWithEmailHandler(req, res) {
   try {
@@ -26,7 +11,7 @@ async function registerWithEmailHandler(req, res) {
 }
 
 async function verifyCodeHandler(req, res) {
- try {
+  try {
     const { email, code } = req.body;
     const result = await verifyCode(email, code);
     res.status(200).json(result);
@@ -59,20 +44,20 @@ async function changePasswordHandler(req, res) {
   }
 }
 
-async function forgotPassword(req, res) {
+async function forgotPasswordHandler(req, res) {
   try {
     const { email } = req.body;
-    const result = await forgetPassword.sendResetCode(email);
+    const result = await sendResetCode(email);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 }
 
-async function resetPassword(req, res) {
+async function resetPasswordHandler(req, res) {
   try {
     const { email, code, newPassword } = req.body;
-    const result = await forgetPassword.resetPassword(email, code, newPassword);
+    const result = await resetPassword(email, code, newPassword);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -80,11 +65,10 @@ async function resetPassword(req, res) {
 }
 
 module.exports = {
-  registerHandler,
   registerWithEmailHandler,
   verifyCodeHandler,
   loginHandler,
   changePasswordHandler,
-  forgotPassword,
-  resetPassword,
+  forgotPasswordHandler,
+  resetPasswordHandler,
 };
