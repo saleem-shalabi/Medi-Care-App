@@ -181,36 +181,94 @@ async function addToFavorites(userId, productId) {
     productId,
   };
 }
+async function getFavoritesService(userId, withVideos = false) {
+  const favorites = await prisma.Product.findMany({
+    where: { favoritedBy: { some: { id: userId } } },
+    include: {
+      videos: withVideos
+        ? { select: { id: true, name: true, bio: true, url: true } }
+        : false,
+      _count: { select: { favoritedBy: true } }, // (اختياري) مفيد لو حابب تشوف الشعبية
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
+  // بما إنو هاد مسار المفضّلة، كل عنصر فعليًا isFavorite = true
+  return {
+    favorites: favorites.map((p) => ({ ...p, isFavorite: true })),
+  };
+}
 async function addToCart(userId, productId, quantity = 1) {
   try {
-    const existing = await prisma.CartItem.findUnique({
-      where: {
-        userId_productId: {
-          userId,
-          productId,
-        },
-      },
+    if (!Number.isInteger(quantity) || quantity < 0)
+      throw new Error("Invalid quantity");
+    const product = await prisma.Product.findUnique({
+      where: { id: productId },
+      select: { id: true },
     });
+    if (!product) throw new Error("Product not found");
 
+    if (quantity === 0) {
+      const existing = await prisma.CartItem.findUnique({
+        where: { userId_productId: { userId, productId } },
+      });
+      if (!existing) return "Product not found in cart, nothing to remove.";
+      await prisma.CartItem.delete({
+        where: { userId_productId: { userId, productId } },
+      });
+      return "Product removed from cart.";
+    }
+
+    const existing = await prisma.CartItem.findUnique({
+      where: { userId_productId: { userId, productId } },
+    });
     if (existing) {
-      // Optional: Update quantity if already exists
       return await prisma.CartItem.update({
         where: { userId_productId: { userId, productId } },
-        data: { quantity: quantity },
+        data: { quantity },
       });
     }
 
-    return await prisma.cartItem.create({
-      data: {
-        userId,
-        productId,
-        quantity, //defaults to 1 if not provided
-      },
+    return await prisma.CartItem.create({
+      data: { userId, productId, quantity },
     });
   } catch (err) {
-    throw new Error("Could not add to cart");
+    throw new Error(err?.message || "Could not add to cart");
   }
+}
+
+async function getCartService(userId) {
+  const cartItems = await prisma.CartItem.findMany({
+    where: { userId },
+    include: {
+      product: {
+        select: {
+          id: true,
+          nameEn: true,
+          nameAr: true,
+          company: true,
+          category: true,
+          images: true,
+          qrCode: true,
+          sellPrice: true,
+        },
+      },
+    },
+    orderBy: { addedAt: "desc" },
+  });
+
+  const cartitems = cartItems.map((ci) => {
+    const lineTotal = (ci.product.sellPrice || 0) * ci.quantity;
+    return {
+      quantity: ci.quantity,
+      lineTotal,
+      product: ci.product,
+    };
+  });
+
+  const totalPrice = cartitems.reduce((sum, item) => sum + item.lineTotal, 0);
+
+  return { cartitems, totalPrice };
 }
 
 module.exports = {
@@ -220,5 +278,7 @@ module.exports = {
   fetchProducts,
   fetchFeaturedProducts,
   addToFavorites,
+  getFavoritesService,
   addToCart,
+  getCartService,
 };

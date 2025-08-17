@@ -5,7 +5,9 @@ const {
   fetchProducts,
   fetchFeaturedProducts,
   addToFavorites,
+  getFavoritesService,
   addToCart,
+  getCartService,
 } = require("../services/productService");
 
 async function addProduct(req, res) {
@@ -90,6 +92,17 @@ async function AddToFavorites(req, res) {
   res.json({ message: "Product added to favorites", result });
 }
 
+async function getFavorites(req, res) {
+  try {
+    const userId = req.user.id; // المسار محمي بـ requireLogin
+    const withVideos = req.query.withVideos === "true";
+    const result = await getFavoritesService(userId, withVideos);
+    return res.status(200).json(result); // { favorites:[...], total:n }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 async function AddToCart(req, res) {
   try {
     const userId = req.user.id;
@@ -99,16 +112,23 @@ async function AddToCart(req, res) {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    const added = await addToCart(userId, Number(productId), quantity ?? 1);
+    const result = await addToCart(userId, Number(productId), quantity ?? 1);
     return res.status(200).json({
-      message: "Product added to cart",
-      item: added,
+      message: result,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 }
-
+async function GetCart(req, res) {
+  try {
+    const userId = req.user.id;
+    const result = await getCartService(userId);
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
 module.exports = {
   addProduct,
   removeProduct,
@@ -116,5 +136,7 @@ module.exports = {
   getProducts,
   getFeatured,
   AddToFavorites,
+  getFavorites,
   AddToCart,
+  GetCart,
 };
