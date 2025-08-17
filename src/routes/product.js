@@ -12,6 +12,7 @@ const {
   removeProduct,
   changeProduct,
   getProducts,
+  getFeatured,
   AddToFavorites,
   AddToCart,
 } = require("../controllers/productController");
@@ -35,6 +36,7 @@ router.patch(
   changeProduct
 );
 router.get("/get-products", requireLogin, getProducts);
+router.get("/get-featured-products", requireLogin, getFeatured);
 router.post("/add-to-favorites/:productId", requireLogin, AddToFavorites);
 router.post("/add-to-cart", requireLogin, AddToCart);
 

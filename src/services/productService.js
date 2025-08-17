@@ -103,6 +103,45 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     return { ...rest, isFavorite };
   });
 }
+
+// src/services/productService.js
+async function fetchFeaturedProducts(
+  limit = 10,
+  withVideos = false,
+  userId = null
+) {
+  const products = await prisma.Product.findMany({
+    take: limit,
+    where: {
+      // only show items the shop can actually offer
+      OR: [{ availableForSale: true }, { availableForRent: true }],
+    },
+    include: {
+      videos: withVideos
+        ? { select: { id: true, name: true, bio: true, url: true } }
+        : false,
+      // for computing isFavorite for the current user (optional)
+      favoritedBy: userId
+        ? { where: { id: userId }, select: { id: true } }
+        : false,
+      // for showing how “popular” a product is (optional, nice to have)
+      _count: { select: { favoritedBy: true } },
+    },
+    // “Featured” ranking: highest rate → most favorited → newest
+    orderBy: [
+      { rate: "desc" },
+      { favoritedBy: { _count: "desc" } },
+      { createdAt: "desc" },
+    ],
+  });
+
+  return products.map((p) => {
+    const isFavorite = Array.isArray(p.favoritedBy) && p.favoritedBy.length > 0;
+    const { favoritedBy, ...rest } = p;
+    return { ...rest, isFavorite };
+  });
+}
+
 async function addToFavorites(userId, productId) {
   // 1) تأكّد المنتج موجود
   const prod = await prisma.Product.findUnique({
@@ -179,6 +218,7 @@ module.exports = {
   deleteProduct,
   editProduct,
   fetchProducts,
+  fetchFeaturedProducts,
   addToFavorites,
   addToCart,
 };

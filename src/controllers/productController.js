@@ -3,6 +3,7 @@ const {
   deleteProduct,
   editProduct,
   fetchProducts,
+  fetchFeaturedProducts,
   addToFavorites,
   addToCart,
 } = require("../services/productService");
@@ -67,6 +68,20 @@ async function getProducts(req, res) {
   }
 }
 
+// src/controllers/productController.js
+async function getFeatured(req, res) {
+  try {
+    const userId = req.user?.id || null; // use maybeLogin middleware if route is public
+    const withVideos = req.query.withVideos === "true";
+    const limit = Number(req.query.limit) || 10;
+
+    const products = await fetchFeaturedProducts(limit, withVideos, userId);
+    return res.status(200).json({ products });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 async function AddToFavorites(req, res) {
   const userId = req.user.id;
   const productId = parseInt(req.params.productId);
@@ -99,6 +114,7 @@ module.exports = {
   removeProduct,
   changeProduct,
   getProducts,
+  getFeatured,
   AddToFavorites,
   AddToCart,
 };
