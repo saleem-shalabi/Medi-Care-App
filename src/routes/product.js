@@ -34,7 +34,7 @@ router.patch(
   validate(editProductSchema),
   changeProduct
 );
-router.get("/get-products", getProducts);
+router.get("/get-products", requireLogin, getProducts);
 router.post("/add-to-favorites/:productId", requireLogin, AddToFavorites);
 router.post("/add-to-cart", requireLogin, AddToCart);
 
