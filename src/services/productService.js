@@ -15,7 +15,7 @@ async function createProduct(data, imageFiles, videoFiles) {
       company: data.company,
       category: data.category,
       description: data.description,
-      rate: Number(data.rate),
+      rate: Number(data.rate) || undefined,
       rentPrice: Number(data.rentPrice),
       sellPrice: Number(data.sellPrice),
       availableForRent: data.availableForRent === "true",
@@ -23,6 +23,8 @@ async function createProduct(data, imageFiles, videoFiles) {
       rentStock: Number(data.rentStock),
       saleStock: Number(data.saleStock),
       qrCode: data.qrCode,
+      usageInstructions: data.usageInstructions, // ← جديد
+      maintenanceGuidelines: data.maintenanceGuidelines, // ← جديد
       images,
       videos: {
         create: videos,
@@ -270,6 +272,80 @@ async function getCartService(userId) {
 
   return { cartitems, totalPrice };
 }
+async function searchProductsService({
+  q = "",
+  category,
+  minPrice,
+  maxPrice,
+  page = 1,
+  pageSize = 12,
+  sortBy = "createdAt", // "createdAt" | "rate" | "price"
+  order = "desc", // "asc" | "desc"
+  withVideos = false,
+  userId = null,
+}) {
+  const where = {};
+
+  // نص البحث (OR على الحقول المهمة)
+  if (q && q.trim()) {
+    where.OR = [
+      { nameEn: { contains: q, mode: "insensitive" } },
+      { nameAr: { contains: q, mode: "insensitive" } },
+      { company: { contains: q, mode: "insensitive" } },
+      { category: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  if (category) where.category = category;
+
+  // فلترة السعر (بيع فقط)
+  if (minPrice || maxPrice) {
+    where.sellPrice = {};
+    if (minPrice != null) where.sellPrice.gte = Number(minPrice);
+    if (maxPrice != null) where.sellPrice.lte = Number(maxPrice);
+  }
+
+  const take = Number(pageSize);
+  const skip = (Number(page) - 1) * take;
+
+  const orderBy =
+    sortBy === "price"
+      ? { sellPrice: order }
+      : sortBy === "rate"
+      ? { rate: order }
+      : { createdAt: order };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.Product.findMany({
+      where,
+      include: {
+        videos: withVideos
+          ? { select: { id: true, name: true, bio: true, url: true } }
+          : false,
+        favoritedBy: userId
+          ? { where: { id: userId }, select: { id: true } }
+          : false,
+      },
+      orderBy,
+      skip,
+      take,
+    }),
+    prisma.Product.count({ where }),
+  ]);
+
+  // isFavorite + إزالة favoritedBy من الخرج
+  const products = items.map((p) => {
+    const isFavorite = Array.isArray(p.favoritedBy) && p.favoritedBy.length > 0;
+    const { favoritedBy, ...rest } = p;
+    return { ...rest, isFavorite };
+  });
+
+  return {
+    products,
+    pagination: { page: Number(page), pageSize: take, total },
+  };
+}
 
 module.exports = {
   createProduct,
@@ -281,4 +357,5 @@ module.exports = {
   getFavoritesService,
   addToCart,
   getCartService,
+  searchProductsService,
 };

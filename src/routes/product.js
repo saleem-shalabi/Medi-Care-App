@@ -17,6 +17,7 @@ const {
   getFavorites,
   AddToCart,
   GetCart,
+  searchProducts,
 } = require("../controllers/productController");
 const upload = require("../middlewares/upload");
 
@@ -43,5 +44,6 @@ router.post("/add-to-favorites/:productId", requireLogin, AddToFavorites);
 router.get("/favorites", requireLogin, getFavorites);
 router.post("/add-to-cart", requireLogin, AddToCart);
 router.get("/cart", requireLogin, GetCart);
+router.get("/search", requireLogin, searchProducts);
 
 module.exports = router;

@@ -8,6 +8,7 @@ const {
   getFavoritesService,
   addToCart,
   getCartService,
+  searchProductsService,
 } = require("../services/productService");
 
 async function addProduct(req, res) {
@@ -129,6 +130,39 @@ async function GetCart(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+async function searchProducts(req, res) {
+  try {
+    const userId = req.user?.id || null; // استخدم maybeLogin لو المسار عام
+    const {
+      q = "",
+      category,
+      minPrice,
+      maxPrice,
+      page = "1",
+      pageSize = "12",
+      sortBy = "createdAt",
+      order = "desc",
+      withVideos = "false",
+    } = req.query;
+
+    const result = await searchProductsService({
+      q,
+      category,
+      minPrice: minPrice ? Number(minPrice) : undefined,
+      maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      page: Number(page),
+      pageSize: Number(pageSize),
+      sortBy,
+      order,
+      withVideos: withVideos === "true",
+      userId,
+    });
+
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
 module.exports = {
   addProduct,
   removeProduct,
@@ -139,4 +173,5 @@ module.exports = {
   getFavorites,
   AddToCart,
   GetCart,
+  searchProducts,
 };
