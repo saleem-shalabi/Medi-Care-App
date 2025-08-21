@@ -1,5 +1,5 @@
 const { date } = require('joi');
-const prisma = require('../config/prisma');
+const {prisma} = require('../config/prisma');
 const bcrypt = require('bcrypt');
 const { Role } = require('../../generated/prisma');
 

@@ -30,13 +30,12 @@ model Users {
   verificationCode String?
   codeExpiresAt    DateTime?
   role             Role      @default(USER)
-  session    ChatSession?
-  messages   ChatMessage[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  
+
   favorites Product[]  @relation("UserFavorites")
-  cartItems CartItem[] // ✅ Relation to CartItem
+  cartItems CartItem[]
+  orders    Order[] 
 }
 
 enum Role {
@@ -44,6 +43,26 @@ enum Role {
   ADMIN
   ACCOUNTANT
   MAINTENANCE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum TransactionType {
+  SALE
+  RENT
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
 }
 
 ////////////////////////////////////////////////////////////////
@@ -66,13 +85,12 @@ model Product {
   qrCode           String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  usageInstructions      String?   
-  maintenanceGuidelines  String?   
 
   // Relations
   favoritedBy Users[]        @relation("UserFavorites")
   cartItems   CartItem[]
   videos      ProductVideo[] // Better naming
+  OrderItem   OrderItem[]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -84,6 +102,7 @@ model CartItem {
   product   Product  @relation(fields: [productId], references: [id])
   productId Int
   quantity  Int      @default(1)
+  transactionType TransactionType 
   addedAt   DateTime @default(now())
 
   @@unique([userId, productId]) // Prevent duplicate entries
@@ -102,28 +121,49 @@ model ProductVideo {
   @@map("product_videos") // ✅ maps model to DB table
 }
 
-model ChatSession {
-  id        String        @id @default(cuid())
-  user      Users         @relation(fields: [userId], references: [id])
-  userId    Int           @unique     // ✅ جلسة واحدة لكل مستخدم
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  messages  ChatMessage[]
+model Order {
+  id              Int         @id @default(autoincrement())
+  user            Users       @relation(fields: [userId], references: [id])
+  userId          Int
+  status          OrderStatus @default(PENDING)
+  totalAmount     Float
+  shippingAddress String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  items   OrderItem[]
+  payment Payment?
+
+  @@map("orders")
 }
 
-model ChatMessage {
-  id         String       @id @default(cuid())
-  session    ChatSession  @relation(fields: [sessionId], references: [id])
-  sessionId  String
+model OrderItem {
+  id                       Int             @id @default(autoincrement())
+  order                    Order           @relation(fields: [orderId], references: [id])
+  orderId                  Int
+  product                  Product         @relation(fields: [productId], references: [id])
+  productId                Int
+  quantity                 Int
+  transactionType          TransactionType // To distinguish between SALE and RENT
+  priceAtTimeOfTransaction Float // CRUCIAL: Price of a single unit at the time of order
 
-  // مرسل الرسالة الحقيقي (null لرسائل المساعد)
-  sender     Users?       @relation(fields: [userId], references: [id])
-  userId     Int?
+  // Fields specific to rentals
+  rentalStartDate DateTime?
+  rentalEndDate   DateTime?
+  returnDate      DateTime? // To mark when the item was actually returned
 
-  isUser     Boolean    
-  content    String
-  createdAt  DateTime     @default(now())
+  @@map("order_items")
+}
 
-  @@index([sessionId])
-  @@index([userId])
+model Payment {
+  id            Int           @id @default(autoincrement())
+  order         Order         @relation(fields: [orderId], references: [id])
+  orderId       Int           @unique // An order has one payment
+  amount        Float
+  paymentMethod String // e.g., 'Credit Card', 'PayPal'
+  status        PaymentStatus @default(PENDING)
+  transactionId String? // The ID from your payment provider (e.g., Stripe)
+  createdAt     DateTime      @default(now())
+
+  @@map("payments")
 }

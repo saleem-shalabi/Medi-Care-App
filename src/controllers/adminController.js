@@ -1,4 +1,4 @@
-const prisma = require('../config/prisma');
+
 const bcrypt = require('bcrypt');
 const { deleteUserById, banUserById, unbanUserById, createUser, changeUserPasswordById, setUserRoleById, getAllUsers } = require('../services/adminService');
 

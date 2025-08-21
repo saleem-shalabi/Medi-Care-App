@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const prisma = require('../config/prisma');
+const {prisma} = require('../config/prisma');
 
 function requireRole(requiredRole) {
   return async function (req, res, next) {

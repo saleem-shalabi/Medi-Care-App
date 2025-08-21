@@ -8,6 +8,8 @@ const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const productRoutes = require("./routes/product");
 const aiChatRoutes = require("./routes/aiChat");
+const userRoutes = require('./routes/user');
+const orderRoutes = require('./routes/order');
 
 app.use(express.json());
 app.use(cors());
@@ -17,5 +19,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/ai-chat", aiChatRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.listen(PORT, () => console.log(`Server is running on port:${PORT}`));

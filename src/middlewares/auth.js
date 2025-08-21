@@ -16,39 +16,6 @@ function authenticate(req, res, next) {
   }
 }
 
-module.exports = authenticate;const prisma = require('../config/prisma');
-const sendEmail = require('../utils/sendEmail');
+module.exports = authenticate;
 
-async function forgotPassword(req, res) {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
-
-  try {
-    const user = await prisma.Users.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    await prisma.Users.update({
-      where: { email },
-      data: {
-        verificationCode: code,
-        codeExpiresAt: expires,
-      },
-    });
-
-    await sendEmail(email, code); // Your email utility
-
-    res.json({ message: 'Reset code sent to email.' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-}
 

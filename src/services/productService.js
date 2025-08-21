@@ -1,4 +1,4 @@
-const prisma = require("../config/prisma");
+const {prisma} = require("../config/prisma");
 
 async function createProduct(data, imageFiles, videoFiles) {
   const images = imageFiles.map((file) => file.path);

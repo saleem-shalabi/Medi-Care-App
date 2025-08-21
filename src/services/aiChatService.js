@@ -1,5 +1,5 @@
 // src/services/aiChatService.js
-const prisma = require("../config/prisma");
+const {prisma} = require("../config/prisma");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Bottleneck = require("bottleneck");
 
