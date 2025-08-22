@@ -1,6 +1,6 @@
 const { OrderStatus } = require('../config/prisma');
 // console.log('Imported OrderStatus:', OrderStatus);
-const { createOrderFromCart, confirmOrderPayment, updateOrderStatus } = require('../services/orderService');
+const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId } = require('../services/orderService');
 
 async function createOrder(req, res) {
     const userId = req.user.id;
@@ -55,8 +55,38 @@ async function setOrderStatus(req, res) {
     }
 }
 
+async function listAllOrders(req, res) {
+    try {
+        const orders = await getAllOrders();
+        res.status(200).json(orders);
+    } catch (err) {
+        res.status(500).json({ error: 'An error occurred while retrieving orders.' });
+    }
+}
+
+async function getUserOrders(req, res) {
+    const { userId } = req.params;
+    const requester = req.user;
+    const isOwner = requester.id === Number(userId);
+    const isAdmin = requester.role === 'ADMIN';
+    if (!isOwner && !isAdmin) {
+        return res.status(403).json({ error: 'Forbidden: You do not have permission to view these orders.' });
+    }
+    try {
+        const orders = await getOrdersByUserId(userId);
+        if (orders.length === 0) {
+            return res.status(404).json({ message: 'No orders found for this user.' });
+        }
+        res.status(200).json(orders);
+    } catch (err) {
+        res.status(500).json({ error: 'An error occurred while retrieving orders.' });
+    }
+}
+
 module.exports = {
     createOrder,
     confirmPayment,
     setOrderStatus,
+    listAllOrders,
+    getUserOrders,
 };

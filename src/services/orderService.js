@@ -1,4 +1,4 @@
-const {prisma} = require('../config/prisma');
+const { prisma } = require('../config/prisma');
 
 async function createOrderFromCart(userId, orderPayload) {
     const { shippingAddress, rentalDetails } = orderPayload;
@@ -62,7 +62,7 @@ async function createOrderFromCart(userId, orderPayload) {
 
 async function confirmOrderPayment(orderId, paymentDetails) {
     const numericOrderId = Number(orderId);
-    
+
     const confirmedOrder = await prisma.$transaction(async (tx) => {
         const order = await tx.Order.findUnique({
             where: { id: numericOrderId },
@@ -113,7 +113,7 @@ async function updateOrderStatus(orderId, newStatus) {
     const order = await prisma.Order.findUnique({
         where: { id: numericOrderId },
     });
-    if (!order) 
+    if (!order)
         throw new Error('Order not found.');
     const allowedTransitions = {
         'PAID': ['SHIPPED', 'CANCELLED'],
@@ -122,13 +122,13 @@ async function updateOrderStatus(orderId, newStatus) {
     const currentStatus = order.status;
     const canTransition = allowedTransitions[currentStatus]?.includes(newStatus);
     if (!canTransition && currentStatus !== 'DELIVERED') {
-         if (currentStatus === 'PAID' && newStatus === 'SHIPPED') {
-    
-         } else if (currentStatus === 'SHIPPED' && newStatus === 'DELIVERED') {
-    
-         } else {
-             throw new Error(`Cannot transition order from ${currentStatus} to ${newStatus}.`);
-         }
+        if (currentStatus === 'PAID' && newStatus === 'SHIPPED') {
+
+        } else if (currentStatus === 'SHIPPED' && newStatus === 'DELIVERED') {
+
+        } else {
+            throw new Error(`Cannot transition order from ${currentStatus} to ${newStatus}.`);
+        }
     }
     const updatedOrder = await prisma.Order.update({
         where: { id: numericOrderId },
@@ -137,8 +137,66 @@ async function updateOrderStatus(orderId, newStatus) {
     return updatedOrder;
 }
 
+async function getAllOrders() {
+    const orders = await prisma.Order.findMany({
+        orderBy: {
+            createdAt: 'desc',
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                },
+            },
+            items: {
+                include: {
+                    product: {
+                        select: {
+                            nameEn: true,
+                            nameAr: true,
+                        }
+                    }
+                }
+            },
+        },
+    });
+    return orders;
+}
+
+async function getOrdersByUserId(userId) {
+    const numericUserId = Number(userId);
+
+    const orders = await prisma.Order.findMany({
+        where: {
+            userId: numericUserId,
+        },
+        orderBy: {
+            createdAt: 'desc',
+        },
+        include: {
+            items: {
+                include: {
+                    product: {
+                        select: {
+                            id: true,
+                            nameEn: true,
+                            nameAr: true,
+                            images: true,
+                        }
+                    }
+                }
+            },
+        },
+    });
+    return orders;
+}
+
 module.exports = {
     createOrderFromCart,
     confirmOrderPayment,
     updateOrderStatus,
+    getAllOrders,
+    getOrdersByUserId,
 };
