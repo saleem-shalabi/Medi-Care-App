@@ -107,13 +107,13 @@ async function getFavorites(req, res) {
 async function AddToCart(req, res) {
   try {
     const userId = req.user.id;
-    const { productId, quantity } = req.body;
+    const { productId, quantity, transactionType } = req.body;
 
     if (!productId) {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    const result = await addToCart(userId, Number(productId), quantity ?? 1);
+    const result = await addToCart(userId, Number(productId), quantity ?? 1, transactionType);
     return res.status(200).json({
       message: result,
     });
