@@ -1,4 +1,4 @@
-const {prisma} = require("../config/prisma");
+const { prisma } = require("../config/prisma");
 
 async function createProduct(data, imageFiles, videoFiles) {
   const images = imageFiles.map((file) => file.path);
@@ -84,15 +84,15 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     include: {
       videos: withVideos
         ? {
-            select: { id: true, name: true, bio: true, url: true },
-          }
+          select: { id: true, name: true, bio: true, url: true },
+        }
         : false,
       // نجيب فقط إذا في userId (مفلتر على نفس المستخدم)
       favoritedBy: userId
         ? {
-            where: { id: userId },
-            select: { id: true },
-          }
+          where: { id: userId },
+          select: { id: true },
+        }
         : false,
     },
     orderBy: { createdAt: "desc" },
@@ -200,7 +200,7 @@ async function getFavoritesService(userId, withVideos = false) {
     favorites: favorites.map((p) => ({ ...p, isFavorite: true })),
   };
 }
-async function addToCart(userId, productId, quantity = 1) {
+async function addToCart(userId, productId, quantity = 1, transactionType) {
   try {
     if (!Number.isInteger(quantity) || quantity < 0)
       throw new Error("Invalid quantity");
@@ -232,7 +232,7 @@ async function addToCart(userId, productId, quantity = 1) {
     }
 
     return await prisma.CartItem.create({
-      data: { userId, productId, quantity },
+      data: { userId, productId, quantity, transactionType },
     });
   } catch (err) {
     throw new Error(err?.message || "Could not add to cart");
@@ -313,8 +313,8 @@ async function searchProductsService({
     sortBy === "price"
       ? { sellPrice: order }
       : sortBy === "rate"
-      ? { rate: order }
-      : { createdAt: order };
+        ? { rate: order }
+        : { createdAt: order };
 
   const [items, total] = await prisma.$transaction([
     prisma.Product.findMany({
