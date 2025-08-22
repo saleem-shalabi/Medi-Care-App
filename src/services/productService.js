@@ -209,7 +209,11 @@ async function addToCart(userId, productId, quantity = 1, transactionType) {
       select: { id: true },
     });
     if (!product) throw new Error("Product not found");
-
+    //check the stock first
+    const stock = transactionType === 'SALE' ? product.saleStock : product.rentStock;
+    if (stock < quantity) {
+      throw new Error(`Not enough stock. Only ${stock} units available.`);
+    }
     if (quantity === 0) {
       const existing = await prisma.CartItem.findUnique({
         where: { userId_productId: { userId, productId } },
