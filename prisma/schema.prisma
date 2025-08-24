@@ -33,9 +33,10 @@ model Users {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  favorites Product[]  @relation("UserFavorites")
-  cartItems CartItem[]
-  orders    Order[] 
+  favorites      Product[]        @relation("UserFavorites")
+  cartItems      CartItem[]
+  orders         Order[]
+  rentalContract RentalContract[]
 }
 
 enum Role {
@@ -87,23 +88,24 @@ model Product {
   updatedAt        DateTime @updatedAt
 
   // Relations
-  favoritedBy Users[]        @relation("UserFavorites")
-  cartItems   CartItem[]
-  videos      ProductVideo[] // Better naming
-  OrderItem   OrderItem[]
+  favoritedBy    Users[]          @relation("UserFavorites")
+  cartItems      CartItem[]
+  videos         ProductVideo[] // Better naming
+  OrderItem      OrderItem[]
+  rentalContract RentalContract[]
 }
 
 ////////////////////////////////////////////////////////////////
 
 model CartItem {
-  id        Int      @id @default(autoincrement())
-  user      Users    @relation(fields: [userId], references: [id])
-  userId    Int
-  product   Product  @relation(fields: [productId], references: [id])
-  productId Int
-  quantity  Int      @default(1)
-  transactionType TransactionType 
-  addedAt   DateTime @default(now())
+  id              Int             @id @default(autoincrement())
+  user            Users           @relation(fields: [userId], references: [id])
+  userId          Int
+  product         Product         @relation(fields: [productId], references: [id])
+  productId       Int
+  quantity        Int             @default(1)
+  transactionType TransactionType
+  addedAt         DateTime        @default(now())
 
   @@unique([userId, productId]) // Prevent duplicate entries
 }
@@ -146,11 +148,13 @@ model OrderItem {
   quantity                 Int
   transactionType          TransactionType // To distinguish between SALE and RENT
   priceAtTimeOfTransaction Float // CRUCIAL: Price of a single unit at the time of order
-
+  extendedContractId       Int?
+  newEndDateForExtension   DateTime?
   // Fields specific to rentals
-  rentalStartDate DateTime?
-  rentalEndDate   DateTime?
-  returnDate      DateTime? // To mark when the item was actually returned
+  rentalStartDate          DateTime?
+  rentalEndDate            DateTime?
+  returnDate               DateTime? // To mark when the item was actually returned
+  rentalContract           RentalContract?
 
   @@map("order_items")
 }
@@ -166,4 +170,51 @@ model Payment {
   createdAt     DateTime      @default(now())
 
   @@map("payments")
+}
+
+enum RentalStatus {
+  UPCOMING // The rental period has not started yet
+  ACTIVE // The item is currently with the customer
+  COMPLETED // The item has been successfully returned on time
+  OVERDUE // The rental period has ended, but the item is not back
+  CANCELLED // The rental was cancelled before it started
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+}
+
+model RentalContract {
+  id             Int    @id @default(autoincrement())
+  contractNumber String @unique @default(cuid()) // A unique, user-facing contract ID
+
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  orderItemId Int       @unique // A rental OrderItem can only have ONE contract
+
+  user   Users @relation(fields: [userId], references: [id])
+  userId Int
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  status RentalStatus @default(UPCOMING)
+
+  startDate DateTime // The agreed-upon start of the rental
+  endDate   DateTime // The agreed-upon end of the rental
+
+  conditionOnDispatch AssetCondition? // The condition of the item when it was sent out
+  conditionOnReturn   AssetCondition? // The condition when it was returned
+  actualReturnDate    DateTime? // The date the item was actually received back
+  agreedToTermsAt     DateTime? // Timestamp of when the user agreed
+  contractDocumentUrl String? // URL to the generated PDF contract
+
+  notes String? // Admin notes about the rental (e.g., "Customer reported minor scratch")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rental_contracts")
 }

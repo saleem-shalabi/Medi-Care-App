@@ -1,8 +1,8 @@
 const nodemailer = require('nodemailer');
 
-async function sendVerificationEmail(to, code) {
+async function sendEmail(mailOptions) {
     const transporter = nodemailer.createTransport({
-        service: 'Gmail', // or any SMTP config
+        service: 'Gmail', 
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
@@ -10,13 +10,16 @@ async function sendVerificationEmail(to, code) {
     });
 
     const info = await transporter.sendMail({
-        from: `"My App" <${process.env.EMAIL_USER}>`,
-        to,
-        subject: 'Your Verification Code',
-        text: `Your verification code is: ${code}`,
+        from: `"Your Medical Devices App" <${process.env.EMAIL_USER}>`,
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        text: mailOptions.text,
+        html: mailOptions.html, // Nodemailer can handle both text and HTML
+        attachments: mailOptions.attachments,
     });
 
     console.log('Email sent:', info.messageId);
+    return info;
 }
 
-module.exports = sendVerificationEmail;
+module.exports = sendEmail;

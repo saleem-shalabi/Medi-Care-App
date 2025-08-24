@@ -1,5 +1,5 @@
 const {prisma} = require("../config/prisma");
-const sendEmail = require("../utils/sendEmail");
+const sendCode = require("../utils/sendCode");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
@@ -33,7 +33,7 @@ async function registerWithEmail({ username, email, password }) {
       },
     });
   }
-  await sendEmail(email, code);
+  await sendCode(email, code);
   return { message: "Verification code sent to email" };
 }
 
@@ -127,7 +127,7 @@ async function sendResetCode(email) {
     data: { verificationCode: code, codeExpiresAt: expires },
   });
 
-  await sendEmail(email, `Your password reset code: ${code}`);
+  await sendCode(email, `Your password reset code: ${code}`);
   return { message: "Reset code sent to email" };
 }
 

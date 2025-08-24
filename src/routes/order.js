@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createOrder, confirmPayment, setOrderStatus, listAllOrders, getUserOrders } = require('../controllers/orderController');
+const { createOrder, confirmPayment, setOrderStatus, listAllOrders, getUserOrders, requestExtension } = require('../controllers/orderController');
 const requireLogin = require('../middlewares/requireLogin');
 const requireRole = require('../middlewares/requireRole');
 const requireRoles = require('../middlewares/requireRoles');
@@ -10,6 +10,6 @@ router.post('/:orderId/confirm-payment', requireLogin, requireRole('ADMIN'), con
 router.patch('/:orderId/set-status', requireLogin, requireRole('ADMIN'), setOrderStatus);
 router.get('/get-orders', requireLogin, requireRoles(['ADMIN', 'ACCOUNTANT']), listAllOrders);
 router.get('/get-user-orders/:userId', requireLogin, getUserOrders);
-
+router.post('/extend-contract/:contractId', requireLogin, requestExtension);
 
 module.exports = router;

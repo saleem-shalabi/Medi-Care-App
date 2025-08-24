@@ -1,6 +1,6 @@
 const { OrderStatus } = require('../config/prisma');
 // console.log('Imported OrderStatus:', OrderStatus);
-const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId } = require('../services/orderService');
+const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId, createExtensionOrder } = require('../services/orderService');
 
 async function createOrder(req, res) {
     const userId = req.user.id;
@@ -28,6 +28,8 @@ async function confirmPayment(req, res) {
         const confirmedOrder = await confirmOrderPayment(orderId, paymentDetails);
         res.status(200).json({ message: 'Payment confirmed successfully. Order is now PAID.', order: confirmedOrder });
     } catch (err) {
+        console.error("!!! PAYMENT CONFIRMATION ERROR !!!", err);
+
         if (err.message.includes('not found') || err.message.includes('not pending') || err.message.includes('does not match')) {
             return res.status(400).json({ error: err.message });
         }
@@ -83,10 +85,28 @@ async function getUserOrders(req, res) {
     }
 }
 
+async function requestExtension(req, res) {
+    const { contractId } = req.params;
+    const { newEndDate } = req.body;
+    const userId = req.user.id;
+
+    if (!newEndDate) {
+        return res.status(400).json({ error: 'newEndDate is a required field.' });
+    }
+
+    try {
+        const extensionOrder = await createExtensionOrder(userId, contractId, newEndDate);
+        res.status(201).json({ message: 'Extension order created. Please proceed to payment.', order: extensionOrder });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+}
+
 module.exports = {
     createOrder,
     confirmPayment,
     setOrderStatus,
     listAllOrders,
     getUserOrders,
+    requestExtension,
 };
