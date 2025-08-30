@@ -84,15 +84,15 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     include: {
       videos: withVideos
         ? {
-          select: { id: true, name: true, bio: true, url: true },
-        }
+            select: { id: true, name: true, bio: true, url: true },
+          }
         : false,
       // نجيب فقط إذا في userId (مفلتر على نفس المستخدم)
       favoritedBy: userId
         ? {
-          where: { id: userId },
-          select: { id: true },
-        }
+            where: { id: userId },
+            select: { id: true },
+          }
         : false,
     },
     orderBy: { createdAt: "desc" },
@@ -202,18 +202,6 @@ async function getFavoritesService(userId, withVideos = false) {
 }
 async function addToCart(userId, productId, quantity = 1, transactionType) {
   try {
-    if (!Number.isInteger(quantity) || quantity < 0)
-      throw new Error("Invalid quantity");
-    const product = await prisma.Product.findUnique({
-      where: { id: productId },
-      select: { id: true },
-    });
-    if (!product) throw new Error("Product not found");
-    //check the stock first
-    const stock = transactionType === 'SALE' ? product.saleStock : product.rentStock;
-    if (stock < quantity) {
-      throw new Error(`Not enough stock. Only ${stock} units available.`);
-    }
     if (quantity === 0) {
       const existing = await prisma.CartItem.findUnique({
         where: { userId_productId: { userId, productId } },
@@ -223,6 +211,18 @@ async function addToCart(userId, productId, quantity = 1, transactionType) {
         where: { userId_productId: { userId, productId } },
       });
       return "Product removed from cart.";
+    }
+    if (!Number.isInteger(quantity) || quantity < 0)
+      throw new Error("Invalid quantity");
+    const product = await prisma.Product.findUnique({
+      where: { id: productId },
+    });
+    if (!product) throw new Error("Product not found");
+    //check the stock first
+    const stock =
+      transactionType === "SALE" ? product.saleStock : product.rentStock;
+    if (stock < quantity) {
+      throw new Error(`Not enough stock. Only ${stock} units available.`);
     }
 
     const existing = await prisma.CartItem.findUnique({
@@ -268,6 +268,7 @@ async function getCartService(userId) {
     return {
       quantity: ci.quantity,
       lineTotal,
+      transactionType: ci.transactionType,
       product: ci.product,
     };
   });
@@ -317,8 +318,8 @@ async function searchProductsService({
     sortBy === "price"
       ? { sellPrice: order }
       : sortBy === "rate"
-        ? { rate: order }
-        : { createdAt: order };
+      ? { rate: order }
+      : { createdAt: order };
 
   const [items, total] = await prisma.$transaction([
     prisma.Product.findMany({
