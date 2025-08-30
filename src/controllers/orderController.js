@@ -1,6 +1,6 @@
 const { OrderStatus } = require('../config/prisma');
 // console.log('Imported OrderStatus:', OrderStatus);
-const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId, createExtensionOrder } = require('../services/orderService');
+const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId, createExtensionOrder, getContractsByUserId, updateContractStatus } = require('../services/orderService');
 
 async function createOrder(req, res) {
     const userId = req.user.id;
@@ -102,6 +102,68 @@ async function requestExtension(req, res) {
     }
 }
 
+async function getCurrentUserContracts(req, res) {
+    const userId = req.user.id; // Get user ID from the authenticated token
+    const { status } = req.query; // Get status from query parameters (e.g., ?status=ACTIVE)
+
+    try {
+        const contracts = await getContractsByUserId(userId, status);
+        if (contracts.length === 0) {
+            return res.status(404).json({ message: 'No contracts found for this user.' });
+        }
+        res.status(200).json(contracts);
+    } catch (err) {
+
+        if (err.message.includes('Invalid status')) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'An error occurred while retrieving contracts.' });
+    }
+}
+
+async function setContractStatus(req, res) {
+    const { contractId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+        return res.status(400).json({ error: 'Status is a required field.' });
+    }
+
+    try {
+        const updatedContract = await updateContractStatus(contractId, status);
+        res.status(200).json({ message: `Contract status updated to ${status}`, contract: updatedContract });
+    } catch (err) {
+        if (err.message.includes('Invalid status') || err.message.includes('not found')) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'An error occurred while updating the contract status.' });
+    }
+}
+
+async function processReturn(req, res) {
+    const { contractId } = req.params;
+    const { conditionOnReturn, notes } = req.body;
+    if (!conditionOnReturn) {
+        return res.status(400).json({ error: 'conditionOnReturn is a required field.' });
+    }
+    if (!Object.values(AssetCondition).includes(conditionOnReturn)) {
+        return res.status(400).json({ 
+            error: 'Invalid condition provided.',
+            allowedConditions: Object.values(AssetCondition),
+         });
+    }
+    try {
+        const returnData = { conditionOnReturn, notes };
+        const completedContract = await contractService.processContractReturn(contractId, returnData);
+        res.status(200).json({ message: 'Product return processed successfully.', contract: completedContract });
+    } catch (err) {
+        if (err.message.includes('not found') || err.message.includes('not active or overdue')) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'An error occurred while processing the return.' });
+    }
+}
+
 module.exports = {
     createOrder,
     confirmPayment,
@@ -109,4 +171,7 @@ module.exports = {
     listAllOrders,
     getUserOrders,
     requestExtension,
+    getCurrentUserContracts,
+    setContractStatus,
+    processReturn,
 };
