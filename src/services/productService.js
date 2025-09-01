@@ -268,6 +268,7 @@ async function getCartService(userId) {
     return {
       quantity: ci.quantity,
       lineTotal,
+      id: ci.id,
       transactionType: ci.transactionType,
       product: ci.product,
     };
