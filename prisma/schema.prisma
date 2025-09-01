@@ -17,27 +17,30 @@ datasource db {
 ////////////////////////////////////////////////////////////////
 
 model Users {
-  id               Int       @id @default(autoincrement())
-  username         String    @unique
-  email            String    @unique
-  password         String
-  number           String? // ✅ Phone number (optional)
-  image            String? // ✅ Profile image URL (optional)
-  jobTitle         String? // ✅ Job title (optional)
-  bio              String? // ✅ Short bio (optional)
-  isBanned         Boolean   @default(false)
-  isVerified       Boolean   @default(false)
-  verificationCode String?
-  codeExpiresAt    DateTime?
-  role             Role      @default(USER)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  session    ChatSession?
-  messages   ChatMessage[]
-  favorites      Product[]        @relation("UserFavorites")
-  cartItems      CartItem[]
-  orders         Order[]
-  rentalContract RentalContract[]
+  id                    Int                  @id @default(autoincrement())
+  username              String               @unique
+  email                 String               @unique
+  password              String
+  number                String? // ✅ Phone number (optional)
+  image                 String? // ✅ Profile image URL (optional)
+  jobTitle              String? // ✅ Job title (optional)
+  bio                   String? // ✅ Short bio (optional)
+  isBanned              Boolean              @default(false)
+  isVerified            Boolean              @default(false)
+  verificationCode      String?
+  codeExpiresAt         DateTime?
+  role                  Role                 @default(USER)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  session               ChatSession?
+  messages              ChatMessage[]
+  favorites             Product[]            @relation("UserFavorites")
+  cartItems             CartItem[]
+  orders                Order[]
+  rentalContract        RentalContract[]
+  customerRequests      MaintenanceRequest[] @relation("CustomerRequests")
+  technicianAssignments MaintenanceRequest[] @relation("TechnicianAssignments")
+  MaintenanceRequest    MaintenanceRequest[]
 }
 
 enum Role {
@@ -70,32 +73,34 @@ enum PaymentStatus {
 ////////////////////////////////////////////////////////////////
 
 model Product {
-  id               Int      @id @default(autoincrement())
-  nameEn           String
-  nameAr           String
-  company          String
-  category         String
-  description      String
-  rate             Float    @default(0)
-  rentPrice        Float?
-  sellPrice        Float?
-  availableForRent Boolean  @default(false)
-  availableForSale Boolean  @default(false)
-  rentStock        Int      @default(0)
-  saleStock        Int      @default(0)
-  images           String[] // Array of image URLs
-  qrCode           String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  usageInstructions      String?   
-  maintenanceGuidelines  String?   
+  id                    Int      @id @default(autoincrement())
+  nameEn                String
+  nameAr                String
+  costPrice             Float    @default(0)
+  company               String
+  category              String
+  description           String
+  rate                  Float    @default(0)
+  rentPrice             Float?
+  sellPrice             Float?
+  availableForRent      Boolean  @default(false)
+  availableForSale      Boolean  @default(false)
+  rentStock             Int      @default(0)
+  saleStock             Int      @default(0)
+  images                String[] // Array of image URLs
+  qrCode                String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  usageInstructions     String?
+  maintenanceGuidelines String?
 
   // Relations
-  favoritedBy    Users[]          @relation("UserFavorites")
-  cartItems      CartItem[]
-  videos         ProductVideo[] // Better naming
-  OrderItem      OrderItem[]
-  rentalContract RentalContract[]
+  favoritedBy        Users[]              @relation("UserFavorites")
+  cartItems          CartItem[]
+  videos             ProductVideo[] // Better naming
+  OrderItem          OrderItem[]
+  rentalContract     RentalContract[]
+  MaintenanceRequest MaintenanceRequest[]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -129,24 +134,24 @@ model ProductVideo {
 model ChatSession {
   id        String        @id @default(cuid())
   user      Users         @relation(fields: [userId], references: [id])
-  userId    Int           @unique     // ✅ جلسة واحدة لكل مستخدم
+  userId    Int           @unique // ✅ جلسة واحدة لكل مستخدم
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  ChatMessage[]
 }
 
 model ChatMessage {
-  id         String       @id @default(cuid())
-  session    ChatSession  @relation(fields: [sessionId], references: [id])
-  sessionId  String
+  id        String      @id @default(cuid())
+  session   ChatSession @relation(fields: [sessionId], references: [id])
+  sessionId String
 
   // مرسل الرسالة الحقيقي (null لرسائل المساعد)
-  sender     Users?       @relation(fields: [userId], references: [id])
-  userId     Int?
+  sender Users? @relation(fields: [userId], references: [id])
+  userId Int?
 
-  isUser     Boolean    
-  content    String
-  createdAt  DateTime     @default(now())
+  isUser    Boolean
+  content   String
+  createdAt DateTime @default(now())
 
   @@index([sessionId])
   @@index([userId])
@@ -177,6 +182,7 @@ model OrderItem {
   quantity                 Int
   transactionType          TransactionType // To distinguish between SALE and RENT
   priceAtTimeOfTransaction Float // CRUCIAL: Price of a single unit at the time of order
+  costAtTimeOfTransaction  Float?
   extendedContractId       Int?
   newEndDateForExtension   DateTime?
   // Fields specific to rentals
@@ -246,4 +252,49 @@ model RentalContract {
   updatedAt DateTime @updatedAt
 
   @@map("rental_contracts")
+}
+
+enum MaintenanceRequestStatus {
+  PENDING // User has submitted the request, awaiting admin review
+  APPROVED // Admin has approved the request and assigned a technician
+  IN_PROGRESS // The technician is actively working on the service
+  COMPLETED // The service is finished
+  CANCELLED // The request was cancelled by the user or admin
+}
+
+model MaintenanceRequest {
+  id            Int    @id @default(autoincrement())
+  requestNumber String @unique @default(cuid()) // User-facing request ID
+
+  // Who is requesting the service?
+  customer   Users @relation("CustomerRequests", fields: [customerId], references: [id])
+  customerId Int
+
+  // Who is assigned to perform the service?
+  // This is optional at first, assigned by an admin later.
+  technician   Users? @relation("TechnicianAssignments", fields: [technicianId], references: [id])
+  technicianId Int?
+
+  // What product needs maintenance? Can be one they own or rent.
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  status MaintenanceRequestStatus @default(PENDING)
+
+  // Details provided by the customer
+  issueDescription     String
+  preferredServiceDate DateTime?
+
+  // Details set by the Admin/Technician (The "Contract")
+  serviceDate     DateTime? // The actual scheduled date
+  estimatedCost   Float? // The initial quote given to the customer
+  finalCost       Float? // The final price after the service is completed
+  technicianNotes String? // Private notes from the technician
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Users     Users?   @relation(fields: [usersId], references: [id])
+  usersId   Int?
+
+  @@map("maintenance_requests")
 }
