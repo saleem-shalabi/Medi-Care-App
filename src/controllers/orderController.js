@@ -1,6 +1,6 @@
 const { OrderStatus } = require('../config/prisma');
 // console.log('Imported OrderStatus:', OrderStatus);
-const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId, createExtensionOrder, getContractsByUserId, updateContractStatus } = require('../services/orderService');
+const { createOrderFromCart, confirmOrderPayment, updateOrderStatus, getAllOrders, getOrdersByUserId, createExtensionOrder, getContractsByUserId, updateContractStatus, processContractReturn, getAllContracts } = require('../services/orderService');
 
 async function createOrder(req, res) {
     const userId = req.user.id;
@@ -143,24 +143,39 @@ async function setContractStatus(req, res) {
 async function processReturn(req, res) {
     const { contractId } = req.params;
     const { conditionOnReturn, notes } = req.body;
+
     if (!conditionOnReturn) {
         return res.status(400).json({ error: 'conditionOnReturn is a required field.' });
     }
-    if (!Object.values(AssetCondition).includes(conditionOnReturn)) {
-        return res.status(400).json({ 
-            error: 'Invalid condition provided.',
-            allowedConditions: Object.values(AssetCondition),
-         });
-    }
+
     try {
         const returnData = { conditionOnReturn, notes };
-        const completedContract = await contractService.processContractReturn(contractId, returnData);
+        const completedContract = await processContractReturn(contractId, returnData);
         res.status(200).json({ message: 'Product return processed successfully.', contract: completedContract });
     } catch (err) {
-        if (err.message.includes('not found') || err.message.includes('not active or overdue')) {
+        if (err.message.includes('Invalid asset condition') || err.message.includes('not found') || err.message.includes('not active or overdue')) {
             return res.status(400).json({ error: err.message });
         }
+        console.log(err);
         res.status(500).json({ error: 'An error occurred while processing the return.' });
+    }
+}
+
+async function listAllContracts(req, res) {
+    // req.query is an object containing all the parameters after the '?' in the URL.
+    // For a URL like /contracts?status=ACTIVE, req.query will be { status: 'ACTIVE' }.
+    const { status, userId } = req.query;
+
+    try {
+        const contracts = await getAllContracts({ status, userId });
+        // if(contracts.length === 0)
+        //     res.status(404).json({error:'No contracts found!'});
+        res.status(200).json(contracts);
+    } catch (err) {
+        if (err.message.includes('Invalid status')) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(500).json({ error: 'An error occurred while retrieving contracts.' });
     }
 }
 
@@ -174,4 +189,5 @@ module.exports = {
     getCurrentUserContracts,
     setContractStatus,
     processReturn,
+    listAllContracts
 };

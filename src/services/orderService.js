@@ -1,4 +1,4 @@
-const { prisma, RentalStatus } = require('../config/prisma');
+const { prisma, RentalStatus, AssetCondition } = require('../config/prisma');
 const sendEmail = require('../utils/sendEmail');
 const { generateContractPdf } = require('../utils/pdfGenerate');
 
@@ -458,17 +458,18 @@ async function processContractReturn(contractId, returnData) {
     const numericContractId = Number(contractId);
     const { conditionOnReturn, notes } = returnData;
 
+    if (!conditionOnReturn || !Object.values(AssetCondition).includes(conditionOnReturn)) {
+        throw new Error(`Invalid asset condition provided. Must be one of: ${Object.values(AssetCondition).join(', ')}`);
+    }
+
     return prisma.$transaction(async (tx) => {
         const contract = await tx.RentalContract.findUnique({
             where: { id: numericContractId },
             include: {
-                orderItem: {
-                    select: {
-                        quantity: true,
-                    },
-                },
+                orderItem: { select: { quantity: true } },
             },
         });
+
         if (!contract) {
             throw new Error('Rental contract not found.');
         }
@@ -478,16 +479,17 @@ async function processContractReturn(contractId, returnData) {
         if (!contract.orderItem) {
             throw new Error('Data inconsistency: Contract is not linked to an order item.');
         }
+
         const updatedContract = await tx.RentalContract.update({
             where: { id: numericContractId },
             data: {
                 status: 'COMPLETED',
                 conditionOnReturn: conditionOnReturn,
                 actualReturnDate: new Date(),
-                // Append notes if they exist, preserving any previous notes.
                 notes: contract.notes ? `${contract.notes}\nReturn Note: ${notes}` : `Return Note: ${notes}`,
             },
         });
+
         await tx.Product.update({
             where: { id: contract.productId },
             data: {
@@ -497,6 +499,32 @@ async function processContractReturn(contractId, returnData) {
             },
         });
         return updatedContract;
+    });
+}
+
+async function getAllContracts(filters = {}) {
+    const { status, userId } = filters;
+
+    // Start with an empty filter object.
+    const whereClause = {};
+
+    if (userId) {
+        whereClause.userId = Number(userId);
+    }
+
+    if (status) {
+        if (!Object.values(RentalStatus).includes(status)) {
+            throw new Error(`Invalid status filter. Must be one of: ${Object.values(RentalStatus).join(', ')}`);
+        }
+        whereClause.status = status;
+    }
+    return prisma.RentalContract.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        include: {
+            user: { select: { id: true, username: true, email: true } },
+            product: { select: { id: true, nameEn: true } }
+        },
     });
 }
 
@@ -510,4 +538,5 @@ module.exports = {
     getContractsByUserId,
     updateContractStatus,
     processContractReturn,
+    getAllContracts,
 };
