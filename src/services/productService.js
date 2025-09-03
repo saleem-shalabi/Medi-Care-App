@@ -77,7 +77,7 @@ async function editProduct(id, data) {
 
 // كان: async function fetchProducts(category, withVideos = false) {
 async function fetchProducts(category, withVideos = false, userId = null) {
-  const where = category ? { category } : {};
+  const where = category && category != "All" ? { category } : {};
 
   const products = await prisma.Product.findMany({
     where,

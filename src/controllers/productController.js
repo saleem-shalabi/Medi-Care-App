@@ -113,7 +113,12 @@ async function AddToCart(req, res) {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    const result = await addToCart(userId, Number(productId), quantity ?? 1, transactionType);
+    const result = await addToCart(
+      userId,
+      Number(productId),
+      quantity ?? 1,
+      transactionType
+    );
     return res.status(200).json({
       message: result,
     });
