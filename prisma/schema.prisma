@@ -40,7 +40,8 @@ model Users {
   rentalContract        RentalContract[]
   customerRequests      MaintenanceRequest[] @relation("CustomerRequests")
   technicianAssignments MaintenanceRequest[] @relation("TechnicianAssignments")
-  MaintenanceRequest    MaintenanceRequest[]
+
+  MaintenanceRequest MaintenanceRequest[]
 }
 
 enum Role {
@@ -73,26 +74,24 @@ enum PaymentStatus {
 ////////////////////////////////////////////////////////////////
 
 model Product {
-  id                    Int      @id @default(autoincrement())
-  nameEn                String
-  nameAr                String
-  costPrice             Float    @default(0)
-  company               String
-  category              String
-  description           String
-  rate                  Float    @default(0)
-  rentPrice             Float?
-  sellPrice             Float?
-  availableForRent      Boolean  @default(false)
-  availableForSale      Boolean  @default(false)
-  rentStock             Int      @default(0)
-  saleStock             Int      @default(0)
-  images                String[] // Array of image URLs
-  qrCode                String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  usageInstructions     String?
-  maintenanceGuidelines String?
+  id               Int      @id @default(autoincrement())
+  nameEn           String
+  nameAr           String
+  costPrice        Float    @default(0)
+  company          String
+  category         String
+  description      String
+  rate             Float    @default(0)
+  rentPrice        Float?
+  sellPrice        Float?
+  availableForRent Boolean  @default(false)
+  availableForSale Boolean  @default(false)
+  rentStock        Int      @default(0)
+  saleStock        Int      @default(0)
+  images           String[] // Array of image URLs
+  qrCode           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   // Relations
   favoritedBy        Users[]              @relation("UserFavorites")
@@ -129,32 +128,6 @@ model ProductVideo {
   productId Int
 
   @@map("product_videos") // ✅ maps model to DB table
-}
-
-model ChatSession {
-  id        String        @id @default(cuid())
-  user      Users         @relation(fields: [userId], references: [id])
-  userId    Int           @unique // ✅ جلسة واحدة لكل مستخدم
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  messages  ChatMessage[]
-}
-
-model ChatMessage {
-  id        String      @id @default(cuid())
-  session   ChatSession @relation(fields: [sessionId], references: [id])
-  sessionId String
-
-  // مرسل الرسالة الحقيقي (null لرسائل المساعد)
-  sender Users? @relation(fields: [userId], references: [id])
-  userId Int?
-
-  isUser    Boolean
-  content   String
-  createdAt DateTime @default(now())
-
-  @@index([sessionId])
-  @@index([userId])
 }
 
 model Order {
@@ -297,4 +270,30 @@ model MaintenanceRequest {
   usersId   Int?
 
   @@map("maintenance_requests")
+}
+
+model ChatSession {
+  id        String        @id @default(cuid())
+  user      Users         @relation(fields: [userId], references: [id])
+  userId    Int           @unique // ✅ جلسة واحدة لكل مستخدم
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  session   ChatSession @relation(fields: [sessionId], references: [id])
+  sessionId String
+
+  // مرسل الرسالة الحقيقي (null لرسائل المساعد)
+  sender Users? @relation(fields: [userId], references: [id])
+  userId Int?
+
+  isUser    Boolean
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
 }
