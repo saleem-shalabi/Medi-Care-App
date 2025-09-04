@@ -21,23 +21,14 @@ const {
 } = require("../controllers/productController");
 const upload = require("../middlewares/upload");
 
-router.post(
-  "/add-product",
-  requireRole("ADMIN"),
-  upload.fields([
-    { name: "images", maxCount: 100 },
-    { name: "videos", maxCount: 100 },
-  ]),
-  validate(createProductSchema),
-  addProduct
-);
+const productUploads = upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'videos', maxCount: 5 }
+]);
+
+router.post('/add-product', requireLogin, requireRole('ADMIN'), productUploads, validate(createProductSchema), addProduct);
 router.delete("/delete-product/:id", requireRole("ADMIN"), removeProduct);
-router.patch(
-  "/edit-product/:id",
-  requireRole("ADMIN"),
-  validate(editProductSchema),
-  changeProduct
-);
+router.patch('/edit-product/:id', requireLogin, requireRole('ADMIN'), productUploads, validate(editProductSchema), changeProduct);
 router.get("/get-products", requireLogin, getProducts);
 router.get("/get-featured-products", requireLogin, getFeatured);
 router.post("/add-to-favorites/:productId", requireLogin, AddToFavorites);
