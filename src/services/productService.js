@@ -254,9 +254,19 @@ async function getCartService(userId) {
           nameAr: true,
           company: true,
           category: true,
+          description: true,
+          rate: true,
           images: true,
           qrCode: true,
           sellPrice: true,
+          rentPrice: true,
+          availableForRent: true,
+          availableForSale: true,
+          rentStock: true,
+          saleStock: true,
+          usageInstructions: true,
+          maintenanceGuidelines: true,
+          videos: true,
         },
       },
     },
@@ -274,7 +284,9 @@ async function getCartService(userId) {
     };
   });
 
-  const totalPrice = cartitems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const totalPrice = cartitems
+    .filter((item) => item.transactionType === "SALE")
+    .reduce((sum, item) => sum + item.lineTotal, 0);
 
   return { cartitems, totalPrice };
 }
