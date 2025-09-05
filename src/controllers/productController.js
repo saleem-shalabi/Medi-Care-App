@@ -13,17 +13,18 @@ const {
 
 async function addProduct(req, res) {
   try {
-    const imageFiles = req.files?.images || [];
-    const videoFiles = req.files?.videos || [];
+    // req.files is now an object with keys 'images' and 'videos'
+    const imageFiles = req.files.images || [];
+    const videoFiles = req.files.videos || [];
 
-    const product = await createProduct(req.body, imageFiles, videoFiles);
+    // Add costPrice to the data passed to the service
+    const data = req.body;
 
-    res.status(201).json({
-      message: "Product created successfully",
-      product,
-    });
+    const newProduct = await createProduct(data, imageFiles, videoFiles);
+    res.status(201).json({ message: 'Product created successfully', product: newProduct });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Create Product Error:", err);
+    res.status(500).json({ error: 'Failed to create product.' });
   }
 }
 
@@ -40,17 +41,20 @@ async function removeProduct(req, res) {
 }
 
 async function changeProduct(req, res) {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
+    const imageFiles = req.files.images || [];
+    const videoFiles = req.files.videos || [];
     const data = req.body;
 
-    const updated = await editProduct(Number(id), data);
-    return res.status(200).json({
-      message: "Product updated successfully",
-      product: updated,
-    });
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
+    const updatedProduct = await editProduct(id, data, imageFiles, videoFiles);
+    res.status(200).json({ message: 'Product updated successfully', product: updatedProduct });
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    console.error("Update Product Error:", err);
+    res.status(500).json({ error: 'Failed to update product.' });
   }
 }
 

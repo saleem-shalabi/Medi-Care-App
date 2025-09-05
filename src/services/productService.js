@@ -1,30 +1,28 @@
 const { prisma } = require("../config/prisma");
 
 async function createProduct(data, imageFiles, videoFiles) {
-  const images = imageFiles.map((file) => file.path);
+  const images = imageFiles.map((file) => `/${file.path.replace(/\\/g, '/')}`);
   const videos = videoFiles.map((file) => ({
     name: file.originalname,
-    bio: "",
-    url: file.path,
+    bio: '',
+    url: `/${file.path.replace(/\\/g, '/')}`,
   }));
 
-  const product = await prisma.Product.create({
+  const newProduct = await prisma.Product.create({
     data: {
       nameEn: data.nameEn,
       nameAr: data.nameAr,
+      costPrice: Number(data.costPrice), // <-- ADDED COST PRICE
       company: data.company,
       category: data.category,
       description: data.description,
-      rate: Number(data.rate) || undefined,
-      rentPrice: Number(data.rentPrice),
-      sellPrice: Number(data.sellPrice),
-      availableForRent: data.availableForRent === "true",
-      availableForSale: data.availableForSale === "true",
-      rentStock: Number(data.rentStock),
-      saleStock: Number(data.saleStock),
-      qrCode: data.qrCode,
-      usageInstructions: data.usageInstructions, // ← جديد
-      maintenanceGuidelines: data.maintenanceGuidelines, // ← جديد
+      rate: Number(data.rate) || 0,
+      rentPrice: Number(data.rentPrice) || null,
+      sellPrice: Number(data.sellPrice) || null,
+      availableForRent: data.availableForRent === 'true',
+      availableForSale: data.availableForSale === 'true',
+      rentStock: Number(data.rentStock) || 0,
+      saleStock: Number(data.saleStock) || 0,
       images,
       videos: {
         create: videos,
@@ -35,7 +33,34 @@ async function createProduct(data, imageFiles, videoFiles) {
     },
   });
 
-  return product;
+  const qrCodeContent = `https://my-app-domain.com/products/${newProduct.id}`;
+  const qrCodeDir = path.join(__dirname, '..', 'uploads', 'qrcodes');
+
+  if (!fs.existsSync(qrCodeDir)) {
+    fs.mkdirSync(qrCodeDir, { recursive: true });
+  }
+
+  const qrCodeFileName = `product-${newProduct.id}.png`;
+  const qrCodeFilePath = path.join(qrCodeDir, qrCodeFileName);
+  const qrCodeUrlPath = `/uploads/qrcodes/${qrCodeFileName}`;
+
+  try {
+    await qr.toFile(qrCodeFilePath, qrCodeContent);
+    console.log(`Successfully generated QR code for product ${newProduct.id}`);
+    const productWithQr = await prisma.Product.update({
+      where: { id: newProduct.id },
+      data: { qrCode: qrCodeUrlPath },
+      include: { videos: true }, // Re-include videos for the final response
+    });
+
+    return productWithQr;
+
+  } catch (err) {
+    console.error('Failed to generate QR code or update product:', err);
+    // If QR generation fails, we should still return the product but log the error.
+    // The admin can regenerate it later.
+    return newProduct;
+  }
 }
 
 async function deleteProduct(id) {
@@ -50,29 +75,58 @@ async function deleteProduct(id) {
   return deleted;
 }
 
-async function editProduct(id, data) {
-  const existingProduct = await prisma.Product.findUnique({ where: { id } });
-  if (!existingProduct) throw new Error("Product not found");
+async function editProduct(productId, data, newImageFiles, newVideoFiles) {
+  const numericId = Number(productId);
 
-  const { videos, ...productData } = data;
+  const existingProduct = await prisma.Product.findUnique({ where: { id: numericId } });
+  if (!existingProduct) {
+    throw new Error('Product not found');
+  }
 
-  const updated = await prisma.Product.update({
-    where: { id },
-    data: {
-      ...productData,
-      ...(videos && {
-        videos: {
-          deleteMany: {},
-          create: ProductVideo,
-        },
-      }),
-    },
-    include: {
-      videos: true,
-    },
+  const updateData = {};
+  if (data.nameEn) updateData.nameEn = data.nameEn;
+  if (data.nameAr) updateData.nameAr = data.nameAr;
+  if (data.costPrice) updateData.costPrice = Number(data.costPrice);
+  if (data.sellPrice) updateData.sellPrice = Number(data.sellPrice);
+  if (data.rentPrice) updateData.rentPrice = Number(data.rentPrice);
+  if (data.saleStock) updateData.saleStock = Number(data.saleStock);
+  if (data.rentStock) updateData.rentStock = Number(data.rentStock);
+  if (data.company) updateData.company = data.company;
+  if (data.category) updateData.category = data.category;
+  if (data.description) updateData.description = data.description;
+  if (data.availableForSale !== undefined) updateData.availableForSale = data.availableForSale === 'true';
+  if (data.availableForRent !== undefined) updateData.availableForRent = data.availableForRent === 'true';
+
+  let finalImages = [...existingProduct.images]; // Start with the old images
+  if (newImageFiles && newImageFiles.length > 0) {
+    const newImagePaths = newImageFiles.map(file => `/${file.path.replace(/\\/g, '/')}`);
+    finalImages.push(...newImagePaths); // Add the new paths to the array
+  }
+  updateData.images = finalImages;
+
+
+  if (newVideoFiles && newVideoFiles.length > 0) {
+    const newVideosData = newVideoFiles.map(file => ({
+      name: file.originalname,
+      bio: '',
+      url: `/${file.path.replace(/\\/g, '/')}`,
+    }));
+
+    updateData.videos = {
+      create: newVideosData,
+    };
+  }
+
+  let updatedProduct = await prisma.Product.update({
+    where: { id: numericId },
+    data: updateData,
+    include: { videos: true },
   });
 
-  return updated;
+  // Optional: Regenerate QR Code if a critical field (like name) changes.
+  // add a query param like `?regenerateQR=true`.
+
+  return updatedProduct;
 }
 
 // كان: async function fetchProducts(category, withVideos = false) {
@@ -84,15 +138,15 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     include: {
       videos: withVideos
         ? {
-            select: { id: true, name: true, bio: true, url: true },
-          }
+          select: { id: true, name: true, bio: true, url: true },
+        }
         : false,
       // نجيب فقط إذا في userId (مفلتر على نفس المستخدم)
       favoritedBy: userId
         ? {
-            where: { id: userId },
-            select: { id: true },
-          }
+          where: { id: userId },
+          select: { id: true },
+        }
         : false,
     },
     orderBy: { createdAt: "desc" },
@@ -331,8 +385,8 @@ async function searchProductsService({
     sortBy === "price"
       ? { sellPrice: order }
       : sortBy === "rate"
-      ? { rate: order }
-      : { createdAt: order };
+        ? { rate: order }
+        : { createdAt: order };
 
   const [items, total] = await prisma.$transaction([
     prisma.Product.findMany({

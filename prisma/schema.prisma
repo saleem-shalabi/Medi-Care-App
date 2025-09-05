@@ -297,3 +297,16 @@ model ChatMessage {
   @@index([sessionId])
   @@index([userId])
 }
+
+model Advertisement {
+  id        Int      @id @default(autoincrement())
+  title     String // A headline for the ad, e.g., "Summer Rental Sale!"
+  bio       String // The main text content of the ad.
+  imageUrl  String // The URL path to the ad's image.
+  linkUrl   String? // Optional: A URL the ad links to (e.g., /products/101)
+  isActive  Boolean  @default(true) // Allows admins to enable/disable ads without deleting them.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("advertisements")
+}
