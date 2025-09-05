@@ -1,4 +1,4 @@
-const { getUserProfileById } = require('../services/userService');
+const { getUserProfileById, updateUserProfile } = require('../services/userService');
 
 async function getUserProfile(req, res) {
     const { id } = req.params;
@@ -31,7 +31,7 @@ async function updateCurrentUserProfile(req, res) {
     }
     try {
         const baseUrl = `${req.protocol}://${req.get('host')}`;
-        const updatedUser = await userService.updateUserProfile(userId, allowedUpdates, baseUrl);
+        const updatedUser = await updateUserProfile(userId, allowedUpdates, baseUrl);
         res.status(200).json({ message: 'Profile updated successfully', user: updatedUser });
     } catch (err) {
         if (err.code === 'P2002') {
