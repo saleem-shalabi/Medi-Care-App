@@ -11,8 +11,9 @@ const aiChatRoutes = require("./routes/aiChat");
 const userRoutes = require("./routes/user");
 const orderRoutes = require("./routes/order");
 const maintenanceRoutes = require("./routes/maintenance");
-const reportRoutes = require('./routes/report');
-const adverstimenetRoutes = require('./routes/advertisement');
+const reportRoutes = require("./routes/report");
+const adverstimenetRoutes = require("./routes/advertisement");
+const viewsRoutes = require("./routes/view");
 
 app.use(express.json());
 app.use(cors());
@@ -25,7 +26,8 @@ app.use("/api/ai-chat", aiChatRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/advertisements', adverstimenetRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/advertisements", adverstimenetRoutes);
+app.use("/api/views", viewsRoutes);
 
 app.listen(PORT, () => console.log(`Server is running on port:${PORT}`));
