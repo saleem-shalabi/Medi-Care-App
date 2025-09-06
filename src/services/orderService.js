@@ -258,82 +258,109 @@ async function confirmOrderPayment(orderId, paymentDetails) {
 
 async function updateOrderStatus(orderId, newStatus) {
   const numericOrderId = Number(orderId);
-
-  return prisma.$transaction(async (tx) => {
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const order = await tx.Order.findUnique({
       where: { id: numericOrderId },
       include: {
+        // We now need the user's details for the email
+        user: {
+          select: { email: true, username: true }
+        },
         items: {
-          select: {
-            id: true,
-            transactionType: true,
-            productId: true,
-            quantity: true,
-          },
+          select: { id: true, transactionType: true, productId: true, quantity: true },
         },
       },
     });
 
     if (!order) {
-      throw new Error("Order not found.");
+      throw new Error('Order not found.');
     }
 
-    // Step 2: Validate the status transition.
     const allowedTransitions = {
-      PENDING: ["CANCELLED", "PAID"],
-      PAID: ["SHIPPED"],
-      SHIPPED: ["DELIVERED"],
+      'PENDING': ['CANCELLED', 'PAID'],
+      'PAID': ['SHIPPED', 'CANCELLED'],
+      'SHIPPED': ['DELIVERED'],
     };
     const currentStatus = order.status;
 
     if (!allowedTransitions[currentStatus]) {
-      throw new Error(
-        `Order is in a final state (${currentStatus}) and cannot be changed.`
-      );
+      throw new Error(`Order is in a final state (${currentStatus}) and cannot be changed.`);
     }
     if (!allowedTransitions[currentStatus].includes(newStatus)) {
-      throw new Error(
-        `Cannot transition order from ${currentStatus} to ${newStatus}.`
-      );
+      throw new Error(`Cannot transition order from ${currentStatus} to ${newStatus}.`);
     }
 
     const updatedOrder = await tx.Order.update({
       where: { id: numericOrderId },
       data: { status: newStatus },
     });
-
     const rentalOrderItemIds = order.items
-      .filter((item) => item.transactionType === "RENT")
-      .map((item) => item.id);
+      .filter(item => item.transactionType === 'RENT')
+      .map(item => item.id);
 
-    if (newStatus === "CANCELLED") {
+    if (newStatus === 'CANCELLED') {
       if (rentalOrderItemIds.length > 0) {
         await tx.RentalContract.updateMany({
           where: { orderItemId: { in: rentalOrderItemIds } },
-          data: { status: "CANCELLED" },
+          data: { status: 'CANCELLED' },
         });
       }
       for (const item of order.items) {
-        const stockField =
-          item.transactionType === "SALE" ? "saleStock" : "rentStock";
+        const stockField = item.transactionType === 'SALE' ? 'saleStock' : 'rentStock';
         await tx.Product.update({
           where: { id: item.productId },
           data: { [stockField]: { increment: item.quantity } },
         });
       }
-    } else if (newStatus === "DELIVERED") {
+
+    } else if (newStatus === 'DELIVERED') {
       if (rentalOrderItemIds.length > 0) {
         await tx.RentalContract.updateMany({
           where: {
             orderItemId: { in: rentalOrderItemIds },
-            status: "UPCOMING",
+            status: 'UPCOMING',
           },
-          data: { status: "ACTIVE" },
+          data: { status: 'ACTIVE' },
         });
       }
     }
-    return updatedOrder;
+    // Return both the updated order and the user details from the transaction.
+    return { updatedOrder, user: order.user, oldStatus: currentStatus };
   });
+
+  const { updatedOrder, user, oldStatus } = transactionResult;
+
+  if (user && user.email) {
+    try {
+      // Define the email content based on the status change.
+      const subject = `Your Order Status has been Updated to: ${newStatus}`;
+      const text = `Hello ${user.username},\n\n` +
+        `This is a notification to let you know that the status of your order #${updatedOrder.id} has been changed from ${oldStatus} to ${newStatus}.\n\n` +
+        `Thank you for your business!\n` +
+        `Your Medical Devices App`;
+
+      const html = `<p>Hello ${user.username},</p>` +
+        `<p>This is a notification to let you know that the status of your order <strong>#${updatedOrder.id}</strong> has been changed from <strong>${oldStatus}</strong> to <strong>${newStatus}</strong>.</p>` +
+        `<p>Thank you for your business!</p>` +
+        `<p>Your Medical Devices App</p>`;
+
+      await sendEmail({
+        to: user.email,
+        subject: subject,
+        text: text,
+        html: html,
+      });
+
+      console.log(`Successfully sent status update email for order ${updatedOrder.id} to ${user.email}`);
+
+    } catch (emailError) {
+      // If the email fails, the process doesn't stop, but we must log it.
+      // The database update is already complete and cannot be rolled back.
+      console.error(`CRITICAL: The database was updated for order ${updatedOrder.id}, but the status update email failed to send. Error:`, emailError);
+    }
+  }
+
+  return updatedOrder;
 }
 
 async function getAllOrders() {
@@ -497,28 +524,62 @@ async function getContractsByUserId(userId, status) {
 async function updateContractStatus(contractId, newStatus) {
   const numericContractId = Number(contractId);
   if (!Object.values(RentalStatus).includes(newStatus)) {
-    throw new Error(
-      `Invalid status. Must be one of: ${Object.values(RentalStatus).join(
-        ", "
-      )}`
-    );
+    throw new Error(`Invalid status. Must be one of: ${Object.values(RentalStatus).join(', ')}`);
   }
-  const updateData = {
-    status: newStatus,
-  };
-  if (newStatus === "COMPLETED") {
-    updateData.actualReturnDate = new Date();
-  }
+
   const contract = await prisma.RentalContract.findUnique({
     where: { id: numericContractId },
+    include: {
+      user: { select: { email: true, username: true } },
+      product: { select: { nameEn: true } },
+    }
   });
+
   if (!contract) {
-    throw new Error("Contract not found.");
+    throw new Error('Rental contract not found.');
   }
-  return prisma.RentalContract.update({
+
+  const oldStatus = contract.status;
+  const { user, product } = contract;
+
+  if (oldStatus === 'COMPLETED' || oldStatus === 'CANCELLED') {
+    throw new Error(`Cannot change status of a contract that is already ${oldStatus}.`);
+  }
+
+  const updateData = { status: newStatus };
+  if (newStatus === 'COMPLETED' && !contract.actualReturnDate) {
+    updateData.actualReturnDate = new Date();
+  }
+
+  const updatedContract = await prisma.RentalContract.update({
     where: { id: numericContractId },
     data: updateData,
   });
+
+  if (user && user.email) {
+    try {
+      let emailTextDetails = `The status of your rental contract #${updatedContract.contractNumber} for the product "${product.nameEn}" has been updated from ${oldStatus} to ${newStatus}.`;
+
+      if (newStatus === 'OVERDUE') {
+        emailTextDetails += `\n\nPlease return the item as soon as possible to avoid further fees. Contact us if you need to request an extension.`;
+      } else if (newStatus === 'COMPLETED') {
+        emailTextDetails += `\n\nThank you for your business. We have successfully processed your return.`;
+      }
+
+      await sendEmail({
+        to: user.email,
+        subject: `Your Rental Contract Status has been Updated to: ${newStatus}`,
+        text: `Hello ${user.username},\n\n${emailTextDetails}`,
+        html: `<p>Hello ${user.username},</p><p>${emailTextDetails.replace(/\n/g, '<br>')}</p>`,
+      });
+
+      console.log(`Successfully sent contract status update email for contract ${updatedContract.id} to ${user.email}`);
+    } catch (emailError) {
+      console.error(`CRITICAL: Database was updated for contract ${updatedContract.id}, but the status update email failed to send. Error:`, emailError);
+    }
+  }
+
+  return updatedContract;
 }
 
 async function processContractReturn(contractId, returnData) {
