@@ -142,15 +142,15 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     include: {
       videos: withVideos
         ? {
-            select: { id: true, name: true, bio: true, url: true },
-          }
+          select: { id: true, name: true, bio: true, url: true },
+        }
         : false,
       // نجيب فقط إذا في userId (مفلتر على نفس المستخدم)
       favoritedBy: userId
         ? {
-            where: { id: userId },
-            select: { id: true },
-          }
+          where: { id: userId },
+          select: { id: true },
+        }
         : false,
     },
     orderBy: { createdAt: "desc" },
@@ -389,8 +389,8 @@ async function searchProductsService({
     sortBy === "price"
       ? { sellPrice: order }
       : sortBy === "rate"
-      ? { rate: order }
-      : { createdAt: order };
+        ? { rate: order }
+        : { createdAt: order };
 
   const [items, total] = await prisma.$transaction([
     prisma.Product.findMany({
@@ -423,6 +423,34 @@ async function searchProductsService({
   };
 }
 
+async function findProductByQrCode(qrCodeUrl) {
+  if (!qrCodeUrl || typeof qrCodeUrl !== 'string') {
+    throw new Error('Invalid or missing QR code content.');
+  }
+
+  const urlParts = qrCodeUrl.split('/');
+  const productId = urlParts.pop() || ''; // Get the last part of the URL.
+
+  const numericId = Number(productId);
+
+  if (isNaN(numericId) || numericId <= 0) {
+    throw new Error('Invalid QR code format: Could not extract a valid product ID.');
+  }
+
+  const product = await prisma.Product.findUnique({
+    where: { id: numericId },
+    include: {
+      videos: true, // Include all relevant product details
+    }
+  });
+
+  if (!product) {
+    throw new Error('Product not found for the given QR code.');
+  }
+
+  return product;
+}
+
 module.exports = {
   createProduct,
   deleteProduct,
@@ -434,4 +462,5 @@ module.exports = {
   addToCart,
   getCartService,
   searchProductsService,
+  findProductByQrCode,
 };

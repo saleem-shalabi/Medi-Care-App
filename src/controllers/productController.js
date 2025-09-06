@@ -9,6 +9,7 @@ const {
   addToCart,
   getCartService,
   searchProductsService,
+  findProductByQrCode
 } = require("../services/productService");
 
 async function addProduct(req, res) {
@@ -172,6 +173,30 @@ async function searchProducts(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+async function getProductByQrCode(req, res) {
+  // The full QR code content is sent as a query parameter named 'code'.
+  // e.g., /by-qrcode?code=https://.../products/123
+  const { code } = req.query;
+
+  if (!code) {
+    return res.status(400).json({ error: 'The "code" query parameter is required.' });
+  }
+
+  try {
+    const product = await findProductByQrCode(code);
+    res.status(200).json(product);
+  } catch (err) {
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ error: err.message });
+    }
+    if (err.message.includes('Invalid')) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.status(500).json({ error: 'An error occurred while finding the product.' });
+  }
+}
+
 module.exports = {
   addProduct,
   removeProduct,
@@ -183,4 +208,5 @@ module.exports = {
   AddToCart,
   GetCart,
   searchProducts,
+  getProductByQrCode,
 };

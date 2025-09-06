@@ -18,6 +18,7 @@ const {
   AddToCart,
   GetCart,
   searchProducts,
+  getProductByQrCode
 } = require("../controllers/productController");
 const upload = require("../middlewares/upload");
 
@@ -29,6 +30,7 @@ const productUploads = upload.fields([
 router.post('/add-product', requireLogin, requireRole('ADMIN'), productUploads, validate(createProductSchema), addProduct);
 router.delete("/delete-product/:id", requireRole("ADMIN"), removeProduct);
 router.patch('/edit-product/:id', requireLogin, requireRole('ADMIN'), productUploads, validate(editProductSchema), changeProduct);
+router.get('/find-by-qrcode', requireLogin, getProductByQrCode);//new
 router.get("/get-products", requireLogin, getProducts);
 router.get("/get-featured-products", requireLogin, getFeatured);
 router.post("/add-to-favorites/:productId", requireLogin, AddToFavorites);
