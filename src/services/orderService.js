@@ -422,11 +422,9 @@ async function createExtensionOrder(userId, contractId, newEndDateString) {
     );
   }
 
-  // 3. Calculate the cost of the extension
-  //const dailyRate = originalContract.product.rentPrice / 7; // Assuming rentPrice is weekly. Adjust as needed.
-  //const extensionDays = (newEndDate.getTime() - extensionStartDate.getTime()) / (1000 * 3600 * 24);
-  //const extensionCost = Math.ceil(extensionDays) * dailyRate;
-  const extensionCost = originalContract.product.rentPrice; //neeeeeeeeeeeeeed change
+  const extensionDurationDays = Math.ceil((newEndDate.getTime() - originalContract.endDate.getTime()) / (1000 * 3600 * 24));
+  const dailyRate = originalContract.product.rentPrice;
+  const extensionCost = dailyRate * extensionDurationDays;
   // 4. Create the new Order and OrderItem in a transaction
   return prisma.$transaction(async (tx) => {
     const extensionOrder = await tx.Order.create({

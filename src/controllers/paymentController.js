@@ -1,13 +1,14 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const paymentService = require('../services/paymentService');
 const orderService = require('../services/orderService');
+const { prisma } = require('../config/prisma');
 
 async function createPaymentSession(req, res) {
     const { orderId } = req.params;
     const userId = req.user.id;
 
     try {
-        const order = await prisma.order.findFirst({
+        const order = await prisma.Order.findFirst({
             where: { id: Number(orderId), userId: userId }
         });
         if (!order) {
@@ -60,7 +61,19 @@ async function handleStripeWebhook(req, res) {
     res.status(200).json({ received: true });
 }
 
+function handlePaymentSuccess(req, res) {
+    // In a real app, you would redirect to a frontend page.
+    res.status(200).send('<h1>Payment Successful!</h1><p>Your order has been confirmed. You will receive an email shortly.</p>');
+}
+
+function handlePaymentCancelled(req, res) {
+    // In a real app, you would redirect to a "try again" page on the frontend.
+    res.status(200).send('<h1>Payment Cancelled</h1><p>Your payment was cancelled. Your order is still pending. You can try to pay again from your order history.</p>');
+}
+
 module.exports = {
     createPaymentSession,
     handleStripeWebhook,
+    handlePaymentSuccess,
+    handlePaymentCancelled
 };
