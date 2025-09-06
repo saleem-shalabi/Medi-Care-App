@@ -1,11 +1,11 @@
 const { prisma } = require("../config/prisma");
 
 async function createProduct(data, imageFiles, videoFiles) {
-  const images = imageFiles.map((file) => `/${file.path.replace(/\\/g, '/')}`);
+  const images = imageFiles.map((file) => `${file.path.replace(/\\/g, "/")}`);
   const videos = videoFiles.map((file) => ({
     name: file.originalname,
-    bio: '',
-    url: `/${file.path.replace(/\\/g, '/')}`,
+    bio: "",
+    url: `${file.path.replace(/\\/g, "/")}`,
   }));
 
   const newProduct = await prisma.Product.create({
@@ -19,8 +19,8 @@ async function createProduct(data, imageFiles, videoFiles) {
       rate: Number(data.rate) || 0,
       rentPrice: Number(data.rentPrice) || null,
       sellPrice: Number(data.sellPrice) || null,
-      availableForRent: data.availableForRent === 'true',
-      availableForSale: data.availableForSale === 'true',
+      availableForRent: data.availableForRent === "true",
+      availableForSale: data.availableForSale === "true",
       rentStock: Number(data.rentStock) || 0,
       saleStock: Number(data.saleStock) || 0,
       images,
@@ -34,7 +34,7 @@ async function createProduct(data, imageFiles, videoFiles) {
   });
 
   const qrCodeContent = `https://my-app-domain.com/products/${newProduct.id}`;
-  const qrCodeDir = path.join(__dirname, '..', 'uploads', 'qrcodes');
+  const qrCodeDir = path.join(__dirname, "..", "uploads", "qrcodes");
 
   if (!fs.existsSync(qrCodeDir)) {
     fs.mkdirSync(qrCodeDir, { recursive: true });
@@ -42,7 +42,7 @@ async function createProduct(data, imageFiles, videoFiles) {
 
   const qrCodeFileName = `product-${newProduct.id}.png`;
   const qrCodeFilePath = path.join(qrCodeDir, qrCodeFileName);
-  const qrCodeUrlPath = `/uploads/qrcodes/${qrCodeFileName}`;
+  const qrCodeUrlPath = `uploads/qrcodes/${qrCodeFileName}`;
 
   try {
     await qr.toFile(qrCodeFilePath, qrCodeContent);
@@ -54,9 +54,8 @@ async function createProduct(data, imageFiles, videoFiles) {
     });
 
     return productWithQr;
-
   } catch (err) {
-    console.error('Failed to generate QR code or update product:', err);
+    console.error("Failed to generate QR code or update product:", err);
     // If QR generation fails, we should still return the product but log the error.
     // The admin can regenerate it later.
     return newProduct;
@@ -78,9 +77,11 @@ async function deleteProduct(id) {
 async function editProduct(productId, data, newImageFiles, newVideoFiles) {
   const numericId = Number(productId);
 
-  const existingProduct = await prisma.Product.findUnique({ where: { id: numericId } });
+  const existingProduct = await prisma.Product.findUnique({
+    where: { id: numericId },
+  });
   if (!existingProduct) {
-    throw new Error('Product not found');
+    throw new Error("Product not found");
   }
 
   const updateData = {};
@@ -94,22 +95,25 @@ async function editProduct(productId, data, newImageFiles, newVideoFiles) {
   if (data.company) updateData.company = data.company;
   if (data.category) updateData.category = data.category;
   if (data.description) updateData.description = data.description;
-  if (data.availableForSale !== undefined) updateData.availableForSale = data.availableForSale === 'true';
-  if (data.availableForRent !== undefined) updateData.availableForRent = data.availableForRent === 'true';
+  if (data.availableForSale !== undefined)
+    updateData.availableForSale = data.availableForSale === "true";
+  if (data.availableForRent !== undefined)
+    updateData.availableForRent = data.availableForRent === "true";
 
   let finalImages = [...existingProduct.images]; // Start with the old images
   if (newImageFiles && newImageFiles.length > 0) {
-    const newImagePaths = newImageFiles.map(file => `/${file.path.replace(/\\/g, '/')}`);
+    const newImagePaths = newImageFiles.map(
+      (file) => `/${file.path.replace(/\\/g, "/")}`
+    );
     finalImages.push(...newImagePaths); // Add the new paths to the array
   }
   updateData.images = finalImages;
 
-
   if (newVideoFiles && newVideoFiles.length > 0) {
-    const newVideosData = newVideoFiles.map(file => ({
+    const newVideosData = newVideoFiles.map((file) => ({
       name: file.originalname,
-      bio: '',
-      url: `/${file.path.replace(/\\/g, '/')}`,
+      bio: "",
+      url: `/${file.path.replace(/\\/g, "/")}`,
     }));
 
     updateData.videos = {
@@ -138,15 +142,15 @@ async function fetchProducts(category, withVideos = false, userId = null) {
     include: {
       videos: withVideos
         ? {
-          select: { id: true, name: true, bio: true, url: true },
-        }
+            select: { id: true, name: true, bio: true, url: true },
+          }
         : false,
       // نجيب فقط إذا في userId (مفلتر على نفس المستخدم)
       favoritedBy: userId
         ? {
-          where: { id: userId },
-          select: { id: true },
-        }
+            where: { id: userId },
+            select: { id: true },
+          }
         : false,
     },
     orderBy: { createdAt: "desc" },
@@ -385,8 +389,8 @@ async function searchProductsService({
     sortBy === "price"
       ? { sellPrice: order }
       : sortBy === "rate"
-        ? { rate: order }
-        : { createdAt: order };
+      ? { rate: order }
+      : { createdAt: order };
 
   const [items, total] = await prisma.$transaction([
     prisma.Product.findMany({
